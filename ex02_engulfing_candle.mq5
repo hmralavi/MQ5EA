@@ -12,7 +12,12 @@ Strategy:
       what is an engulfing candle? it is a candle that its body completely overlaps or engulfs the body of the previous day's candlestick.
    6- open a position at the close price of the engulfing candle.
    7- set SL at end of the candle's wick. check if the loss is less than 1% of balance. if so, continue.
-   8- set TP according to the r/R rartio.
+   8- set TP according to the r/R ratio.
+
+TODO:
+   engulfing candle must have no wick (or very small)
+   engulfing candle's body must be twice(variable) the size of the prev. candle
+   consider price spread
 -------------------------------------------------------------
 */
 
@@ -145,7 +150,7 @@ MarketTrendType check_market_trend(){
       if(i<nbars-1) check&=ma1_val[i]>ma1_val[i+1];
       if(i<nbars-1) check&=ma2_val[i]>ma2_val[i+1];
       check &= ma2_val[i]>ma1_val[i];
-      //check &= mrate[i].close>ma2_val[i];
+      check &= mrate[i].close>ma2_val[i];
       i++;
    }
    if(check) return BULLISH;
@@ -206,7 +211,7 @@ MqlTradeRequest prepare_order(ENUM_ORDER_TYPE ordertype){
    order.volume = lot_size;                                              // number of lots to trade
    order.magic = magic_number;                                          // Order Magic Number
    order.type_filling = ORDER_FILLING_FOK;                          // Order execution type
-   order.deviation=10;                                             // Deviation from current price
+   order.deviation=1;                                             // Deviation from current price
    
    if(ordertype==ORDER_TYPE_BUY){
       order.price = NormalizeDouble(latest_price.ask,_Digits);
