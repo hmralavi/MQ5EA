@@ -1,7 +1,13 @@
 #include <Trade/Trade.mqh>
 
-bool IsNewCandle(){
-   datetime current_candle_time = iTime(_Symbol, _Period, 0);
+enum ENUM_MARKET_TREND_TYPE{
+   MARKET_TREND_NEUTRAL=0,
+   MARKET_TREND_BULLISH=1,
+   MARKET_TREND_BEARISH=2
+};
+
+bool IsNewCandle(ENUM_TIMEFRAMES timeframe){
+   datetime current_candle_time = iTime(_Symbol, timeframe, 0);
    static datetime lasttime = current_candle_time;
    if(lasttime == current_candle_time){
          return false;
@@ -71,10 +77,10 @@ void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double t
    trade.PositionModify(pos_ticket, new_sl, current_tp);
 }
 
-void DetectPeaks(double& levels[], datetime& times[], bool& isTop[], int start, int count, int ncandles_peak){
+void DetectPeaks(double& levels[], datetime& times[], bool& isTop[], ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
    MqlRates mrate[];
    ArraySetAsSeries(mrate, true);
-   if(CopyRates(_Symbol,_Period,start,count,mrate)<0){
+   if(CopyRates(_Symbol,timeframe,start,count,mrate)<0){
       Alert(__FUNCTION__, "-->Error copying rates/history data - error:",GetLastError(),"!!");
       ResetLastError();
       return;
@@ -108,8 +114,6 @@ void DetectPeaks(double& levels[], datetime& times[], bool& isTop[], int start, 
          isTop[npeaks-1] = false;
       }
    }
-   
-
 }
 
 void PlotPeaks(double& levels[], datetime& times[], bool& isTop[]){
@@ -121,4 +125,35 @@ void PlotPeaks(double& levels[], datetime& times[], bool& isTop[]){
       ObjectCreate(0, objname, objtype, 0, times[i], levels[i]);
       ObjectSetInteger(0, objname, OBJPROP_COLOR, objclr);
    }
+}
+
+ENUM_MARKET_TREND_TYPE DetectPeaksTrend(ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
+   double levels[];
+   datetime times[];
+   bool isTop[];
+   DetectPeaks(levels, times, isTop, timeframe, start, count, ncandles_peak);
+   PlotPeaks(levels, times, isTop);
+   
+   double tops[];
+   double bottoms[];
+   int ntops = 0;
+   int nbottoms = 0;
+   int npeaks = ArraySize(levels);
+   
+   for(int i=0; i<npeaks; i++){
+      if(isTop[i]){
+         ntops++;
+         ArrayResize(tops, ntops);
+         tops[ntops-1] = levels[i];
+      }else{
+         nbottoms++;
+         ArrayResize(bottoms, nbottoms);
+         bottoms[nbottoms-1] = levels[i];   
+      }
+   }
+   
+   double bid_price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
+   if(tops[0]>tops[1] && bottoms[0]>bottoms[1] && bid_price>bottoms[0]) return MARKET_TREND_BULLISH;
+   if(tops[0]<tops[1] && bottoms[0]<bottoms[1] && bid_price<tops[0]) return MARKET_TREND_BEARISH;
+   return MARKET_TREND_NEUTRAL;
 }
