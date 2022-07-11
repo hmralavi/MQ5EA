@@ -44,8 +44,8 @@ void OnTick()
   {
    if(PositionsTotal()>0) return;
    if(buy){
-      double ask = SymbolInfoDouble(_Symbol,SYMBOL_ASK)-_Point;
-      double bid = SymbolInfoDouble(_Symbol,SYMBOL_BID)-_Point;
+      double ask = SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+      double bid = SymbolInfoDouble(_Symbol,SYMBOL_BID);
       double tp = ask + TpPoints * _Point;
       double sl = bid - SlPoints * _Point;
       
@@ -55,8 +55,8 @@ void OnTick()
       
       trade.Buy(adaptiveLots,_Symbol,ask,sl,tp);
     }else{
-      double ask = SymbolInfoDouble(_Symbol,SYMBOL_ASK)+_Point;
-      double bid = SymbolInfoDouble(_Symbol,SYMBOL_BID)+_Point;
+      double ask = SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+      double bid = SymbolInfoDouble(_Symbol,SYMBOL_BID);
       double tp = bid - TpPoints * _Point;
       double sl = ask + SlPoints * _Point;
       
