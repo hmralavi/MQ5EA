@@ -5,70 +5,77 @@ TODO:
 */
 #include <../Experts/mq5ea/mytools.mqh>
 
-input uint NCandles = 5;
+input int NCandlesHistory = 500;
+input int NCandlesPeak = 5;
 input double LotSize = 0.01;
-input uint SlPoints = 100;
-input bool TSL = false;  // Trailing stoploss
-input uint Magic = 100;
+input int SlPoints = 100;
+input double RRatio = 2;
+input bool TSL_Enabled = false;  // Trailing stoploss enabled
+input int Magic = 100;
 
 CTrade trade;
 
 int OnInit()
-  {
+{
    trade.SetExpertMagicNumber(Magic);
    return(INIT_SUCCEEDED);
-  }
+}
 
 void OnDeinit(const int reason)
-  {
-   
-  }
+{
+
+}
 
 void OnTick()
-  {
-   /*
-   openposition exist --> tsl
-   
-   pendingorder exist --> return
-   
-   isnewcandle ---> detect peaks
-   
-   place order
-   
-   if(NPositions(Magic)==0){
-      double ask = SymbolInfoDouble(_Symbol,SYMBOL_ASK);
-      double bid = SymbolInfoDouble(_Symbol,SYMBOL_BID);
-      double sl;
-      double tp;
-      bool buy = rand()/32767.0 < 0.5;
-      if(buy) {
-         tp = ask + 1 * SlPoints * _Point;
-         sl = bid - SlPoints * _Point;     
-      }else{
-         tp = bid - 1 * SlPoints * _Point;
-         sl = ask + SlPoints * _Point;     
+{
+   ulong pos_tickets[];
+   GetMyPositionsTickets(Magic, pos_tickets);
+   int npos = ArraySize(pos_tickets);
+   if(npos>0){
+      DeleteAllOrders(trade);
+      if(TSL_Enabled){
+         for(int i=0; i<npos; i++) TrailingStoploss(trade, pos_tickets[i], SlPoints, SlPoints);
       }
-      ask = NormalizeDouble(ask,_Digits);
-      bid = NormalizeDouble(bid,_Digits);
-      tp = NormalizeDouble(tp,_Digits);
-      sl = NormalizeDouble(sl,_Digits);
-      if(buy){
-         trade.Buy(LotSize,_Symbol,ask,sl,tp);
-      }else{
-         trade.Sell(LotSize,_Symbol,bid,sl,tp);
-      }
-   }else{
-      ulong posticket = PositionGetTicket(0);
-      //TrailingStoploss(trade, posticket, SlPoints, SlPoints);
+      return;
    }
-   */
-  }
+   if(IsNewCandle()){
+      double peak_levels[];
+      datetime peak_times[];
+      bool peak_tops[];
+      DetectPeaks(peak_levels, peak_times, peak_tops, 1, NCandlesHistory, NCandlesPeak);
+      ObjectsDeleteAll(0);
+      PlotPeaks(peak_levels, peak_times, peak_tops);
+      
+      DeleteAllOrders(trade);
+      
+      double ask_price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      int npeaks = ArraySize(peak_levels);
+      bool buyset = false;
+      bool sellset = false;
+      for(uint i=0; i<npeaks; i++){
+         if(peak_tops[i] && (bid_price < peak_levels[i]) && !sellset){
+            double sl = peak_levels[i] + SlPoints * _Point;
+            double tp = peak_levels[i] - RRatio * SlPoints * _Point;
+            trade.SellLimit(LotSize, peak_levels[i], _Symbol, sl, tp);
+            sellset = true;
+         }else if(!peak_tops[i] && (ask_price > peak_levels[i]) && !buyset){
+            double sl = peak_levels[i] - SlPoints * _Point;
+            double tp = peak_levels[i] + RRatio * SlPoints * _Point;
+            trade.BuyLimit(LotSize, peak_levels[i], _Symbol, sl, tp);
+            buyset = true;         
+         }
+         if(sellset && buyset) break;
+      }
+   
+   }   
+}
 
 void OnTradeTransaction(const MqlTradeTransaction& trans,
                         const MqlTradeRequest& request,
                         const MqlTradeResult& result)
-  {
+{
    
-  }
+}
   
 
