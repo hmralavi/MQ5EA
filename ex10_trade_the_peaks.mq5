@@ -41,11 +41,8 @@ void OnTick()
       return;
    }
    if(IsNewCandle(MainTimeFrame)){
-      double peak_levels[];
-      datetime peak_times[];
-      int peak_shifts[];
-      bool peak_tops[];
-      DetectPeaks(peak_levels, peak_times, peak_shifts, peak_tops, MainTimeFrame, 1, NCandlesHistory, NCandlesPeak);
+      PeakProperties peaks[];
+      DetectPeaks(peaks, MainTimeFrame, 1, NCandlesHistory, NCandlesPeak);
       ObjectsDeleteAll(0);
       //PlotPeaks(peak_levels, peak_times, peak_tops);
       
@@ -56,18 +53,18 @@ void OnTick()
       
       double ask_price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      int npeaks = ArraySize(peak_levels);
+      int npeaks = ArraySize(peaks);
       
       for(uint i=0; i<npeaks; i++){
-         if(peak_tops[i] && (bid_price < peak_levels[i]) && market_trend==MARKET_TREND_BEARISH){
-            double sl = peak_levels[i] + SlPoints * _Point;
-            double tp = peak_levels[i] - RRatio * SlPoints * _Point;
-            trade.SellLimit(LotSize, peak_levels[i], _Symbol, sl, tp);
+         if(peaks[i].isTop && (bid_price < peaks[i].main_candle.high) && market_trend==MARKET_TREND_BEARISH){
+            double sl = peaks[i].main_candle.high + SlPoints * _Point;
+            double tp = peaks[i].main_candle.high - RRatio * SlPoints * _Point;
+            trade.SellLimit(LotSize, peaks[i].main_candle.high, _Symbol, sl, tp);
             break;
-         }else if(!peak_tops[i] && (ask_price > peak_levels[i]) && market_trend==MARKET_TREND_BULLISH){
-            double sl = peak_levels[i] - SlPoints * _Point;
-            double tp = peak_levels[i] + RRatio * SlPoints * _Point;
-            trade.BuyLimit(LotSize, peak_levels[i], _Symbol, sl, tp);
+         }else if(!peaks[i].isTop && (ask_price > peaks[i].main_candle.low) && market_trend==MARKET_TREND_BULLISH){
+            double sl = peaks[i].main_candle.low - SlPoints * _Point;
+            double tp = peaks[i].main_candle.low + RRatio * SlPoints * _Point;
+            trade.BuyLimit(LotSize, peaks[i].main_candle.low, _Symbol, sl, tp);
             break;       
          }
       }  

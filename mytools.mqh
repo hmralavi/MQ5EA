@@ -187,7 +187,7 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
                      obs[nobs-1].main_candle = mrate[iobcandle];
                      obs[nobs-1].shift = iobcandle;
                      obs[nobs-1].isDemandZone = true;
-                     obs[nobs-1].breaking_candle.low = 0;
+                     obs[nobs-1].breaking_candle.low = 0; // this means the breaking candle is not detected yet
                      int ntouches = 0;
                      for(int itouching=iobcandle-ncandles_peak;itouching>=0;itouching--){
                         if(mrate[itouching].low<obs[nobs-1].main_candle.high && mrate[itouching].low>obs[nobs-1].main_candle.low){
