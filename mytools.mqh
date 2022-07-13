@@ -6,13 +6,13 @@ enum ENUM_MARKET_TREND_TYPE{
    MARKET_TREND_BEARISH=2
 };
 
-struct PeaksProperties{
+struct PeakProperties{
   MqlRates main_candle;
   int shift;
   bool isTop; 
 };
 
-struct OrderBlocksProperties{
+struct OrderBlockProperties{
    MqlRates main_candle;
    int shift;
    bool isDemandZone;
@@ -91,7 +91,7 @@ void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double t
    trade.PositionModify(pos_ticket, new_sl, current_tp);
 }
 
-void DetectPeaks(double& levels[], datetime& times[], int& shifts[], bool& isTop[], ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
+void DetectPeaks(PeakProperties& peaks[], ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
    MqlRates mrate[];
    ArraySetAsSeries(mrate, true);
    if(CopyRates(_Symbol,timeframe,start,count,mrate)<0){
@@ -110,67 +110,49 @@ void DetectPeaks(double& levels[], datetime& times[], int& shifts[], bool& isTop
          _isbottom = _isbottom && (mrate[icandle].low <= mrate[icandle+i].low);
          if(!_istop && !_isbottom) break;
       }
-      if(_istop){
-         npeaks++;
-         ArrayResize(levels, npeaks);
-         ArrayResize(times, npeaks);
-         ArrayResize(shifts, npeaks);
-         ArrayResize(isTop, npeaks);
-         levels[npeaks-1] = mrate[icandle].high;
-         times[npeaks-1] = mrate[icandle].time;
-         shifts[npeaks-1] = icandle;
-         isTop[npeaks-1] = true;
-         icandle += 2;
-      }else if(_isbottom){
-         npeaks++;
-         ArrayResize(levels, npeaks);
-         ArrayResize(times, npeaks);
-         ArrayResize(shifts, npeaks);
-         ArrayResize(isTop, npeaks);
-         levels[npeaks-1] = mrate[icandle].low;
-         times[npeaks-1] = mrate[icandle].time;
-         shifts[npeaks-1] = icandle;
-         isTop[npeaks-1] = false;
-         icandle += 2;
-      }
+      if(!_istop && !_isbottom) continue;
+      npeaks++;
+      ArrayResize(peaks, npeaks);
+      peaks[npeaks-1].isTop = _istop;
+      peaks[npeaks-1].main_candle = mrate[icandle];
+      peaks[npeaks-1].shift = icandle;
+      icandle += 2;
    }
 }
 
-void PlotPeaks(double& levels[], datetime& times[], bool& isTop[]){
-   int npeaks = ArraySize(levels);
+void PlotPeaks(PeakProperties& peaks[]){
+   int npeaks = ArraySize(peaks);
    for(int i=0; i<npeaks; i++){
-      string objname = isTop[i]?"peak"+IntegerToString(i,3,'0')+"_top":"peak"+IntegerToString(i,3,'0')+"_bottom";
-      ENUM_OBJECT objtype = isTop[i]?OBJ_ARROW_DOWN:OBJ_ARROW_UP;
-      color objclr = isTop[i]?clrBlack:clrBlue;
-      ObjectCreate(0, objname, objtype, 0, times[i], levels[i]);
+      string objname = peaks[i].isTop?"peak"+IntegerToString(i,3,'0')+"_top":"peak"+IntegerToString(i,3,'0')+"_bottom";
+      ENUM_OBJECT objtype = peaks[i].isTop?OBJ_ARROW_DOWN:OBJ_ARROW_UP;
+      color objclr = peaks[i].isTop?clrBlack:clrBlue;
+      double value = peaks[i].isTop?peaks[i].main_candle.high:peaks[i].main_candle.low;
+      ObjectCreate(0, objname, objtype, 0, peaks[i].main_candle.time, value);
       ObjectSetInteger(0, objname, OBJPROP_COLOR, objclr);
       ObjectSetString(0, objname,OBJPROP_NAME,objname);
    }
 }
 
 ENUM_MARKET_TREND_TYPE DetectPeaksTrend(ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
-   double levels[];
-   datetime times[];
-   int shifts[];
-   bool isTop[];
-   DetectPeaks(levels, times, shifts, isTop, timeframe, start, count, ncandles_peak);
-   PlotPeaks(levels, times, isTop);
+   PeakProperties peaks[];
+   DetectPeaks(peaks, timeframe, start, count, ncandles_peak);
+   PlotPeaks(peaks);
    
    double tops[];
    double bottoms[];
    int ntops = 0;
    int nbottoms = 0;
-   int npeaks = ArraySize(levels);
+   int npeaks = ArraySize(peaks);
    
    for(int i=0; i<npeaks; i++){
-      if(isTop[i]){
+      if(peaks[i].isTop){
          ntops++;
          ArrayResize(tops, ntops);
-         tops[ntops-1] = levels[i];
+         tops[ntops-1] = peaks[i].main_candle.high;
       }else{
          nbottoms++;
          ArrayResize(bottoms, nbottoms);
-         bottoms[nbottoms-1] = levels[i];   
+         bottoms[nbottoms-1] = peaks[i].main_candle.low;   
       }
    }
    
@@ -180,8 +162,7 @@ ENUM_MARKET_TREND_TYPE DetectPeaksTrend(ENUM_TIMEFRAMES timeframe,int start, int
    return MARKET_TREND_NEUTRAL;
 }
 
-void DetectOrderBlocks(double& zones[][2], datetime& times[][2], int& shifts[][2], bool& isDemandZone[], bool& isMitigated[],
-                       ENUM_TIMEFRAMES timeframe, int start, int count, int ncandles_peak){
+void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, int start, int count, int ncandles_peak){
    MqlRates mrate[];
    ArraySetAsSeries(mrate, true);
    if(CopyRates(_Symbol,timeframe,start,count,mrate)<0){
@@ -190,37 +171,31 @@ void DetectOrderBlocks(double& zones[][2], datetime& times[][2], int& shifts[][2
       return;
    }
    
-   double peak_levels[];
-   datetime peak_times[];
-   int peak_shifts[];
-   bool peak_isTop[];
-   DetectPeaks(peak_levels, peak_times, peak_shifts, peak_isTop, timeframe, start, count, ncandles_peak);
-   int npeaks = ArraySize(peak_levels);
+   PeakProperties peaks[];
+   DetectPeaks(peaks, timeframe, start, count, ncandles_peak);
+   int npeaks = ArraySize(peaks);
    
-   int nob = 0;
+   int nobs = 0;
    for(int ipeak=0;ipeak<npeaks;ipeak++){
-      for(int icandle=peak_shifts[ipeak]-1;icandle>=0;icandle--){
-         if(peak_isTop[ipeak]){
-            if(mrate[icandle].high>peak_levels[ipeak] && mrate[icandle].close>mrate[icandle].open){
-               for(int iobcandle=icandle+1;iobcandle<peak_shifts[ipeak];iobcandle++){
-                  if(mrate[iobcandle].close<mrate[iobcandle].open && mrate[iobcandle].high<peak_levels[ipeak]){
-                     nob++;
-                     ArrayResize(zones, nob);
-                     ArrayResize(times, nob);
-                     ArrayResize(shifts, nob);
-                     ArrayResize(isDemandZone, nob);
-                     ArrayResize(isMitigated, nob);
-                     zones[nob-1][0] = mrate[iobcandle].low;
-                     zones[nob-1][1] = mrate[iobcandle].high;
-                     times[nob-1][0] = mrate[iobcandle].time;
-                     shifts[nob-1][0] = iobcandle;
-                     isDemandZone[nob-1] = true;
-                     isMitigated[nob-1] = false;
-                     for(int imitigation=iobcandle-ncandles_peak;imitigation>=0;imitigation--){
-                        if(mrate[imitigation].low<zones[nob-1][1]){
-                           times[nob-1][1] = mrate[imitigation].time;
-                           shifts[nob-1][1] = imitigation;
-                           isMitigated[nob-1] = true;
+      for(int icandle=peaks[ipeak].shift-1;icandle>=0;icandle--){
+         if(peaks[ipeak].isTop){
+            if(mrate[icandle].high>peaks[ipeak].main_candle.high && mrate[icandle].close>mrate[icandle].open){
+               for(int iobcandle=icandle+1;iobcandle<peaks[ipeak].shift;iobcandle++){
+                  if(mrate[iobcandle].close<mrate[iobcandle].open && mrate[iobcandle].high<peaks[ipeak].main_candle.high){
+                     nobs++;
+                     ArrayResize(obs, nobs);
+                     obs[nobs-1].main_candle = mrate[iobcandle];
+                     obs[nobs-1].shift = iobcandle;
+                     obs[nobs-1].isDemandZone = true;
+                     obs[nobs-1].breaking_candle.low = 0;
+                     int ntouches = 0;
+                     for(int itouching=iobcandle-ncandles_peak;itouching>=0;itouching--){
+                        if(mrate[itouching].low<obs[nobs-1].main_candle.high && mrate[itouching].low>obs[nobs-1].main_candle.low){
+                           ntouches++;
+                           ArrayResize(obs[nobs-1].touching_candles, ntouches);
+                           obs[nobs-1].touching_candles[ntouches-1] = mrate[itouching];
+                        }else if(mrate[itouching].low<obs[nobs-1].main_candle.low){
+                           obs[nobs-1].breaking_candle = mrate[itouching];
                            break;
                         }
                      }
@@ -230,26 +205,23 @@ void DetectOrderBlocks(double& zones[][2], datetime& times[][2], int& shifts[][2
                break;             
             }
          }else{
-            if(mrate[icandle].low<peak_levels[ipeak] && mrate[icandle].close<mrate[icandle].open){
-               for(int iobcandle=icandle+1;iobcandle<peak_shifts[ipeak];iobcandle++){
-                  if(mrate[iobcandle].close>mrate[iobcandle].open && mrate[iobcandle].low>peak_levels[ipeak]){
-                     nob++;
-                     ArrayResize(zones, nob);
-                     ArrayResize(times, nob);
-                     ArrayResize(shifts, nob);
-                     ArrayResize(isDemandZone, nob);
-                     ArrayResize(isMitigated, nob);
-                     zones[nob-1][0] = mrate[iobcandle].low;
-                     zones[nob-1][1] = mrate[iobcandle].high;
-                     times[nob-1][0] = mrate[iobcandle].time;
-                     shifts[nob-1][0] = iobcandle;
-                     isDemandZone[nob-1] = false;
-                     isMitigated[nob-1] = false;
-                     for(int imitigation=iobcandle-ncandles_peak;imitigation>=0;imitigation--){
-                        if(mrate[imitigation].high>zones[nob-1][0]){
-                           times[nob-1][1] = mrate[imitigation].time;
-                           shifts[nob-1][1] = imitigation;
-                           isMitigated[nob-1] = true;
+            if(mrate[icandle].low<peaks[ipeak].main_candle.low && mrate[icandle].close<mrate[icandle].open){
+               for(int iobcandle=icandle+1;iobcandle<peaks[ipeak].shift;iobcandle++){
+                  if(mrate[iobcandle].close>mrate[iobcandle].open && mrate[iobcandle].low>peaks[ipeak].main_candle.low){
+                     nobs++;
+                     ArrayResize(obs, nobs);
+                     obs[nobs-1].main_candle = mrate[iobcandle];
+                     obs[nobs-1].shift = iobcandle;
+                     obs[nobs-1].isDemandZone = false;
+                     obs[nobs-1].breaking_candle.low = 0;
+                     int ntouches = 0;
+                     for(int itouching=iobcandle-ncandles_peak;itouching>=0;itouching--){
+                        if(mrate[itouching].high>obs[nobs-1].main_candle.low && mrate[itouching].high<obs[nobs-1].main_candle.high){
+                           ntouches++;
+                           ArrayResize(obs[nobs-1].touching_candles, ntouches);
+                           obs[nobs-1].touching_candles[ntouches-1] = mrate[itouching];
+                        }else if(mrate[itouching].high>obs[nobs-1].main_candle.high){
+                           obs[nobs-1].breaking_candle = mrate[itouching];
                            break;
                         }
                      }
@@ -257,23 +229,23 @@ void DetectOrderBlocks(double& zones[][2], datetime& times[][2], int& shifts[][2
                   }
                }  
                break;             
-            }         
+            }
          }
       }
    }                        
 }
 
-void PlotOrderBlocks(double& zones[][2], datetime& times[][2], bool& isDemandZone[], bool& isMitigated[],string name_prefix="", ENUM_LINE_STYLE line_style=STYLE_SOLID){
-   int nob = ArraySize(isDemandZone);
+void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LINE_STYLE line_style=STYLE_SOLID, bool fill=false){
+   int nob = ArraySize(obs);
    for(int iob=0;iob<nob;iob++){
-      string objname = isDemandZone[iob]?"ob"+IntegerToString(iob,3,'0')+"_demand":"ob"+IntegerToString(iob,3,'0')+"_supply";
+      string objname = obs[iob].isDemandZone?"ob"+IntegerToString(iob,3,'0')+"_demand":"ob"+IntegerToString(iob,3,'0')+"_supply";
       if(name_prefix!="") objname = name_prefix + "_" + objname;
       ENUM_OBJECT objtype = OBJ_RECTANGLE;
-      color objclr = isDemandZone[iob]?clrGreen:clrRed;
-      datetime endtime = isMitigated[iob]?times[iob][1]:iTime(_Symbol,PERIOD_CURRENT,0);
-      ObjectCreate(0, objname, objtype, 0, endtime, zones[iob][1], times[iob][0], zones[iob][0]);
+      color objclr = obs[iob].isDemandZone?clrGreen:clrRed;
+      datetime endtime = obs[iob].breaking_candle.low==0?iTime(_Symbol,PERIOD_CURRENT,0):obs[iob].breaking_candle.time;
+      ObjectCreate(0, objname, objtype, 0, endtime, obs[iob].main_candle.high, obs[iob].main_candle.time, obs[iob].main_candle.low);
       ObjectSetInteger(0, objname, OBJPROP_COLOR, objclr);  
       ObjectSetInteger(0, objname, OBJPROP_STYLE, line_style);
-      ObjectSetInteger(0, objname, OBJPROP_FILL, false);
+      ObjectSetInteger(0, objname, OBJPROP_FILL, fill);
    }
 }
