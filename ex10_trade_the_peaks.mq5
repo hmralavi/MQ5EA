@@ -43,8 +43,9 @@ void OnTick()
    if(IsNewCandle(MainTimeFrame)){
       double peak_levels[];
       datetime peak_times[];
+      int peak_shifts[];
       bool peak_tops[];
-      DetectPeaks(peak_levels, peak_times, peak_tops, MainTimeFrame, 1, NCandlesHistory, NCandlesPeak);
+      DetectPeaks(peak_levels, peak_times, peak_shifts, peak_tops, MainTimeFrame, 1, NCandlesHistory, NCandlesPeak);
       ObjectsDeleteAll(0);
       //PlotPeaks(peak_levels, peak_times, peak_tops);
       
@@ -57,21 +58,18 @@ void OnTick()
       double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       int npeaks = ArraySize(peak_levels);
       
-      bool buyset = false;
-      bool sellset = false;
       for(uint i=0; i<npeaks; i++){
-         if(peak_tops[i] && (bid_price < peak_levels[i]) && !sellset && market_trend==MARKET_TREND_BEARISH){
+         if(peak_tops[i] && (bid_price < peak_levels[i]) && market_trend==MARKET_TREND_BEARISH){
             double sl = peak_levels[i] + SlPoints * _Point;
             double tp = peak_levels[i] - RRatio * SlPoints * _Point;
             trade.SellLimit(LotSize, peak_levels[i], _Symbol, sl, tp);
-            sellset = true;
-         }else if(!peak_tops[i] && (ask_price > peak_levels[i]) && !buyset && market_trend==MARKET_TREND_BULLISH){
+            break;
+         }else if(!peak_tops[i] && (ask_price > peak_levels[i]) && market_trend==MARKET_TREND_BULLISH){
             double sl = peak_levels[i] - SlPoints * _Point;
             double tp = peak_levels[i] + RRatio * SlPoints * _Point;
             trade.BuyLimit(LotSize, peak_levels[i], _Symbol, sl, tp);
-            buyset = true;         
+            break;       
          }
-         if(sellset && buyset) break;
       }  
    }   
 }
