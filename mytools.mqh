@@ -200,10 +200,15 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
       for(int icandle=peaks[ipeak].shift-1;icandle>=0;icandle--){
          if(peaks[ipeak].isTop){
             if(mrate[icandle].high>peaks[ipeak].main_candle.high && mrate[icandle].close>mrate[icandle].open){
-               PeakProperties _ob_peaks[];
-               DetectPeaksCoreFunc(_ob_peaks, mrate, ncandles_peak, icandle+1, peaks[ipeak].shift);
                PeakProperties ob_peak;
-               if(!GetExtremumPeak(ob_peak, _ob_peaks, !peaks[ipeak].isTop)){
+               bool ob_found = false;
+               if(ipeak>0){
+                  if(peaks[ipeak-1].isTop!=peaks[ipeak].isTop && peaks[ipeak-1].shift>icandle){
+                     ob_peak=peaks[ipeak-1];
+                     ob_found = true;
+                  }
+               }
+               if(!ob_found){               
                   for(int iobcandle=icandle+1;iobcandle<peaks[ipeak].shift;iobcandle++){
                      if(mrate[iobcandle].close<mrate[iobcandle].open && mrate[iobcandle].high<peaks[ipeak].main_candle.high){
                         ob_peak.main_candle = mrate[iobcandle];
@@ -211,7 +216,7 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
                         ob_peak.isTop = !peaks[ipeak].isTop;
                         break;
                      }
-                  }
+                  }              
                }
                nobs++;
                ArrayResize(obs, nobs);
@@ -234,10 +239,15 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
             }
          }else{
             if(mrate[icandle].low<peaks[ipeak].main_candle.low && mrate[icandle].close<mrate[icandle].open){
-               PeakProperties _ob_peaks[];
-               DetectPeaksCoreFunc(_ob_peaks, mrate, ncandles_peak, icandle+1, peaks[ipeak].shift);
                PeakProperties ob_peak;
-               if(!GetExtremumPeak(ob_peak, _ob_peaks, !peaks[ipeak].isTop)){
+               bool ob_found = false;
+               if(ipeak>0){
+                  if(peaks[ipeak-1].isTop!=peaks[ipeak].isTop && peaks[ipeak-1].shift>icandle){
+                     ob_peak=peaks[ipeak-1];
+                     ob_found = true;
+                  }
+               }
+               if(!ob_found){               
                   for(int iobcandle=icandle+1;iobcandle<peaks[ipeak].shift;iobcandle++){
                      if(mrate[iobcandle].close>mrate[iobcandle].open && mrate[iobcandle].low>peaks[ipeak].main_candle.low){
                         ob_peak.main_candle = mrate[iobcandle];
@@ -245,8 +255,8 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
                         ob_peak.isTop = !peaks[ipeak].isTop;
                         break;
                      }
-                  }
-               }               
+                  }              
+               }           
                nobs++;
                ArrayResize(obs, nobs);
                obs[nobs-1].main_candle = ob_peak.main_candle;
@@ -273,6 +283,7 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
 
 void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LINE_STYLE line_style=STYLE_SOLID, int width=1 ,bool fill=false, int nMax=-1){
    int nob = ArraySize(obs);
+   nMax = MathMin(nMax, nob);
    if(nMax==-1) nMax=nob;
    for(int iob=0;iob<nMax;iob++){
       string objname = obs[iob].isDemandZone?"ob"+IntegerToString(iob,3,'0')+"_demand":"ob"+IntegerToString(iob,3,'0')+"_supply";

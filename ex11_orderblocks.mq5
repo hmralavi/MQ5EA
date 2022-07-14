@@ -1,7 +1,8 @@
 /*
 
 TODO: 
-must detect orderblocks more accurately
+close half of the position on specific profit
+trade in market's direction
 
 */
 #include <../Experts/mq5ea/mytools.mqh>
@@ -9,10 +10,10 @@ must detect orderblocks more accurately
 input ENUM_TIMEFRAMES MinorTF = PERIOD_M5;
 input ENUM_TIMEFRAMES MajorTF = PERIOD_H1;
 input int NCandlesMinorTF = 288;
-input int NCandlesMajorTF = 168;
+input int NCandlesMajorTF = 500;
 input int NCandlesPeak = 6;
-input int NMaxMajorOBToShow = 5;
-input int NMaxMinorObsToShow = 5;
+input int NMaxMinorObsToShow = 3;
+input int NMaxMajorOBToShow = 3;
 input double LotSize = 0.1;
 input int SlPoints = 50;
 input double RRatio = 10;
@@ -20,6 +21,7 @@ input bool TSL_Enabled = true;  // Trailing stoploss enabled
 input int Magic = 110;
 
 CTrade trade;
+double _slpoints;
 
 int OnInit()
 {
@@ -40,7 +42,7 @@ void OnTick()
    if(npos>0){
       DeleteAllOrders(trade);
       if(TSL_Enabled){
-         for(int i=0; i<npos; i++) TrailingStoploss(trade, pos_tickets[i], SlPoints, 2*SlPoints);
+         for(int i=0; i<npos; i++) TrailingStoploss(trade, pos_tickets[i], 2*_slpoints, 3*_slpoints);
       }
       return;
    }
@@ -62,14 +64,14 @@ void OnTick()
    //if(market_trend==MARKET_TREND_NEUTRAL) return;
 
    
-   ObjectsDeleteAll(0);
-   PlotPeaks(major_peaks, 3);
+   //ObjectsDeleteAll(0);
+   //PlotPeaks(major_peaks, 3);
    //PlotPeaks(minor_peaks, 1);
-   PlotOrderBlocks(major_obs, "major", STYLE_SOLID, 3, false, NMaxMajorOBToShow);
+   //PlotOrderBlocks(major_obs, "major", STYLE_SOLID, 3, false, NMaxMajorOBToShow);
    //PlotOrderBlocks(minor_obs, "minor", STYLE_SOLID, 1, false, NMaxMinorOBToShow);
-   ChartRedraw(0);
-   Sleep(100);
-   return;
+   //ChartRedraw(0);
+   //Sleep(100);
+   //return;
 
    double ask_price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -85,12 +87,14 @@ void OnTick()
             if(minor_obs[iminor].breaking_candle.low>0) continue; // check if the minor zone is broken
             if(bid_price<=minor_obs[iminor].main_candle.high && bid_price>=minor_obs[iminor].main_candle.low){
                if(minor_obs[iminor].isDemandZone){ // open buy position
-                  double sl = minor_obs[iminor].main_candle.low - SlPoints * _Point;
-                  double tp = ask_price + RRatio * SlPoints * _Point;
+                  double sl = major_obs[imajor].main_candle.low - SlPoints * _Point;
+                  double tp = ask_price + RRatio * SlPoints * _Point;               
+                  _slpoints = (bid_price - sl)/_Point;   
                   trade.Buy(LotSize, _Symbol, ask_price, sl, tp);
                }else if(!minor_obs[iminor].isDemandZone){  // open sell position
-                  double sl = minor_obs[iminor].main_candle.high + SlPoints * _Point;
-                  double tp = bid_price - RRatio * SlPoints * _Point;
+                  double sl = major_obs[imajor].main_candle.high + SlPoints * _Point;
+                  double tp = bid_price - RRatio * SlPoints * _Point;                
+                  _slpoints = (sl - ask_price)/_Point;     
                   trade.Sell(LotSize, _Symbol, bid_price, sl, tp);
                }
                trade_allowed = false;
@@ -101,8 +105,8 @@ void OnTick()
                OrderBlockProperties mino[1];
                majo[0] = major_obs[imajor];
                mino[0] = minor_obs[iminor];
-               PlotOrderBlocks(majo, "major", STYLE_SOLID, false);
-               PlotOrderBlocks(mino, "minor", STYLE_DOT, false);
+               PlotOrderBlocks(majo, "major", STYLE_SOLID, 3, false, NMaxMajorOBToShow);
+               PlotOrderBlocks(mino, "minor", STYLE_DOT, 1, false, NMaxMinorObsToShow);
                break;
             }
          }
