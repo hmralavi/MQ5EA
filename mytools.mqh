@@ -99,10 +99,15 @@ void DetectPeaks(PeakProperties& peaks[], ENUM_TIMEFRAMES timeframe,int start, i
       ResetLastError();
       return;
    }
-   uint npeaks = 0;
+   DetectPeaksCoreFunc(peaks, mrate, ncandles_peak, 0, -1);
+}
+
+void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandles_peak, int start_candle=0, int end_candle=-1){
+   if(end_candle==-1) end_candle=ArraySize(mrate);
+   int npeaks = 0;
    bool _istop;
    bool _isbottom;
-   for(int icandle=ncandles_peak; icandle<count-ncandles_peak; icandle++){
+   for(int icandle=ncandles_peak+start_candle; icandle<end_candle-ncandles_peak; icandle++){
       _istop = true;
       _isbottom = true;
       for(int i=-ncandles_peak; i<=ncandles_peak; i++){
@@ -116,11 +121,26 @@ void DetectPeaks(PeakProperties& peaks[], ENUM_TIMEFRAMES timeframe,int start, i
       peaks[npeaks-1].isTop = _istop;
       peaks[npeaks-1].main_candle = mrate[icandle];
       peaks[npeaks-1].shift = icandle;
-      icandle += 2;
+      //icandle += 2;
    }
+
 }
 
-void PlotPeaks(PeakProperties& peaks[]){
+bool GetExtremumPeak(PeakProperties& extremum_peak, PeakProperties& peaks[], bool findMax){
+   int npeaks = ArraySize(peaks);
+   bool success = false;
+   for(int i=0;i<npeaks;i++){
+      bool cond1 = findMax && peaks[i].isTop && (peaks[i].main_candle.high>extremum_peak.main_candle.high || i==0);
+      bool cond2 = !findMax && !peaks[i].isTop && (peaks[i].main_candle.low<extremum_peak.main_candle.low || i==0);
+      if(cond1 || cond2){
+         extremum_peak = peaks[i];
+         success = true;
+      }
+   }
+   return success;
+}
+
+void PlotPeaks(PeakProperties& peaks[], int width=1){
    int npeaks = ArraySize(peaks);
    for(int i=0; i<npeaks; i++){
       string objname = peaks[i].isTop?"peak"+IntegerToString(i,3,'0')+"_top":"peak"+IntegerToString(i,3,'0')+"_bottom";
@@ -129,7 +149,7 @@ void PlotPeaks(PeakProperties& peaks[]){
       double value = peaks[i].isTop?peaks[i].main_candle.high:peaks[i].main_candle.low;
       ObjectCreate(0, objname, objtype, 0, peaks[i].main_candle.time, value);
       ObjectSetInteger(0, objname, OBJPROP_COLOR, objclr);
-      ObjectSetString(0, objname,OBJPROP_NAME,objname);
+      ObjectSetInteger(0, objname, OBJPROP_WIDTH, width);
    }
 }
 
@@ -180,64 +200,81 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
       for(int icandle=peaks[ipeak].shift-1;icandle>=0;icandle--){
          if(peaks[ipeak].isTop){
             if(mrate[icandle].high>peaks[ipeak].main_candle.high && mrate[icandle].close>mrate[icandle].open){
-               for(int iobcandle=icandle+1;iobcandle<peaks[ipeak].shift;iobcandle++){
-                  if(mrate[iobcandle].close<mrate[iobcandle].open && mrate[iobcandle].high<peaks[ipeak].main_candle.high){
-                     nobs++;
-                     ArrayResize(obs, nobs);
-                     obs[nobs-1].main_candle = mrate[iobcandle];
-                     obs[nobs-1].shift = iobcandle;
-                     obs[nobs-1].isDemandZone = true;
-                     obs[nobs-1].breaking_candle.low = 0; // this means the breaking candle is not detected yet
-                     int ntouches = 0;
-                     for(int itouching=iobcandle-ncandles_peak;itouching>=0;itouching--){
-                        if(mrate[itouching].low<obs[nobs-1].main_candle.high && mrate[itouching].low>obs[nobs-1].main_candle.low){
-                           ntouches++;
-                           ArrayResize(obs[nobs-1].touching_candles, ntouches);
-                           obs[nobs-1].touching_candles[ntouches-1] = mrate[itouching];
-                        }else if(mrate[itouching].low<obs[nobs-1].main_candle.low){
-                           obs[nobs-1].breaking_candle = mrate[itouching];
-                           break;
-                        }
+               PeakProperties _ob_peaks[];
+               DetectPeaksCoreFunc(_ob_peaks, mrate, ncandles_peak, icandle+1, peaks[ipeak].shift);
+               PeakProperties ob_peak;
+               if(!GetExtremumPeak(ob_peak, _ob_peaks, !peaks[ipeak].isTop)){
+                  for(int iobcandle=icandle+1;iobcandle<peaks[ipeak].shift;iobcandle++){
+                     if(mrate[iobcandle].close<mrate[iobcandle].open && mrate[iobcandle].high<peaks[ipeak].main_candle.high){
+                        ob_peak.main_candle = mrate[iobcandle];
+                        ob_peak.shift = iobcandle;
+                        ob_peak.isTop = !peaks[ipeak].isTop;
+                        break;
                      }
+                  }
+               }
+               nobs++;
+               ArrayResize(obs, nobs);
+               obs[nobs-1].main_candle = ob_peak.main_candle;
+               obs[nobs-1].shift = ob_peak.shift;
+               obs[nobs-1].isDemandZone = !ob_peak.isTop;
+               obs[nobs-1].breaking_candle.low = 0; // this means the breaking candle is not detected yet
+               int ntouches = 0;
+               for(int itouching=ob_peak.shift-ncandles_peak;itouching>=0;itouching--){
+                  if(mrate[itouching].low<ob_peak.main_candle.high && mrate[itouching].low>ob_peak.main_candle.low){
+                     ntouches++;
+                     ArrayResize(obs[nobs-1].touching_candles, ntouches);
+                     obs[nobs-1].touching_candles[ntouches-1] = mrate[itouching];
+                  }else if(mrate[itouching].low<ob_peak.main_candle.low){
+                     obs[nobs-1].breaking_candle = mrate[itouching];
                      break;
                   }
-               }  
+               }
                break;             
             }
          }else{
             if(mrate[icandle].low<peaks[ipeak].main_candle.low && mrate[icandle].close<mrate[icandle].open){
-               for(int iobcandle=icandle+1;iobcandle<peaks[ipeak].shift;iobcandle++){
-                  if(mrate[iobcandle].close>mrate[iobcandle].open && mrate[iobcandle].low>peaks[ipeak].main_candle.low){
-                     nobs++;
-                     ArrayResize(obs, nobs);
-                     obs[nobs-1].main_candle = mrate[iobcandle];
-                     obs[nobs-1].shift = iobcandle;
-                     obs[nobs-1].isDemandZone = false;
-                     obs[nobs-1].breaking_candle.low = 0;
-                     int ntouches = 0;
-                     for(int itouching=iobcandle-ncandles_peak;itouching>=0;itouching--){
-                        if(mrate[itouching].high>obs[nobs-1].main_candle.low && mrate[itouching].high<obs[nobs-1].main_candle.high){
-                           ntouches++;
-                           ArrayResize(obs[nobs-1].touching_candles, ntouches);
-                           obs[nobs-1].touching_candles[ntouches-1] = mrate[itouching];
-                        }else if(mrate[itouching].high>obs[nobs-1].main_candle.high){
-                           obs[nobs-1].breaking_candle = mrate[itouching];
-                           break;
-                        }
+               PeakProperties _ob_peaks[];
+               DetectPeaksCoreFunc(_ob_peaks, mrate, ncandles_peak, icandle+1, peaks[ipeak].shift);
+               PeakProperties ob_peak;
+               if(!GetExtremumPeak(ob_peak, _ob_peaks, !peaks[ipeak].isTop)){
+                  for(int iobcandle=icandle+1;iobcandle<peaks[ipeak].shift;iobcandle++){
+                     if(mrate[iobcandle].close>mrate[iobcandle].open && mrate[iobcandle].low>peaks[ipeak].main_candle.low){
+                        ob_peak.main_candle = mrate[iobcandle];
+                        ob_peak.shift = iobcandle;
+                        ob_peak.isTop = !peaks[ipeak].isTop;
+                        break;
                      }
+                  }
+               }               
+               nobs++;
+               ArrayResize(obs, nobs);
+               obs[nobs-1].main_candle = ob_peak.main_candle;
+               obs[nobs-1].shift = ob_peak.shift;
+               obs[nobs-1].isDemandZone = !ob_peak.isTop;
+               obs[nobs-1].breaking_candle.low = 0; // this means the breaking candle is not detected yet
+               int ntouches = 0;
+               for(int itouching=ob_peak.shift-ncandles_peak;itouching>=0;itouching--){
+                  if(mrate[itouching].high>ob_peak.main_candle.low && mrate[itouching].high<ob_peak.main_candle.high){
+                     ntouches++;
+                     ArrayResize(obs[nobs-1].touching_candles, ntouches);
+                     obs[nobs-1].touching_candles[ntouches-1] = mrate[itouching];
+                  }else if(mrate[itouching].high>ob_peak.main_candle.high){
+                     obs[nobs-1].breaking_candle = mrate[itouching];
                      break;
                   }
-               }  
+               }
                break;             
-            }
+            }         
          }
       }
    }                        
 }
 
-void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LINE_STYLE line_style=STYLE_SOLID, bool fill=false){
+void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LINE_STYLE line_style=STYLE_SOLID, int width=1 ,bool fill=false, int nMax=-1){
    int nob = ArraySize(obs);
-   for(int iob=0;iob<nob;iob++){
+   if(nMax==-1) nMax=nob;
+   for(int iob=0;iob<nMax;iob++){
       string objname = obs[iob].isDemandZone?"ob"+IntegerToString(iob,3,'0')+"_demand":"ob"+IntegerToString(iob,3,'0')+"_supply";
       if(name_prefix!="") objname = name_prefix + "_" + objname;
       ENUM_OBJECT objtype = OBJ_RECTANGLE;
@@ -246,6 +283,7 @@ void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LIN
       ObjectCreate(0, objname, objtype, 0, endtime, obs[iob].main_candle.high, obs[iob].main_candle.time, obs[iob].main_candle.low);
       ObjectSetInteger(0, objname, OBJPROP_COLOR, objclr);  
       ObjectSetInteger(0, objname, OBJPROP_STYLE, line_style);
+      ObjectSetInteger(0, objname, OBJPROP_WIDTH, width);
       ObjectSetInteger(0, objname, OBJPROP_FILL, fill);
    }
 }

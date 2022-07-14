@@ -11,6 +11,8 @@ input ENUM_TIMEFRAMES MajorTF = PERIOD_H1;
 input int NCandlesMinorTF = 288;
 input int NCandlesMajorTF = 168;
 input int NCandlesPeak = 6;
+input int NMaxMajorOBToShow = 5;
+input int NMaxMinorObsToShow = 5;
 input double LotSize = 0.1;
 input int SlPoints = 50;
 input double RRatio = 10;
@@ -44,6 +46,12 @@ void OnTick()
    }
    if(!IsNewCandle(MinorTF)) return;
    
+   PeakProperties major_peaks[];
+   DetectPeaks(major_peaks, MajorTF, 0, NCandlesMajorTF, NCandlesPeak);
+   
+   PeakProperties minor_peaks[];
+   DetectPeaks(minor_peaks, MinorTF, 0, NCandlesMinorTF, NCandlesPeak);
+   
    OrderBlockProperties major_obs[]; 
    DetectOrderBlocks(major_obs, MajorTF, 0, NCandlesMajorTF, NCandlesPeak);
 
@@ -54,12 +62,14 @@ void OnTick()
    //if(market_trend==MARKET_TREND_NEUTRAL) return;
 
    
-   //ObjectsDeleteAll(0);
-   //ChartRedraw(0);
-   //Sleep(100);
-   //PlotOrderBlocks(major_obs, "major", STYLE_SOLID, false);
-   //PlotOrderBlocks(minor_obs, "minor", STYLE_DOT, false);
-   //return;
+   ObjectsDeleteAll(0);
+   PlotPeaks(major_peaks, 3);
+   //PlotPeaks(minor_peaks, 1);
+   PlotOrderBlocks(major_obs, "major", STYLE_SOLID, 3, false, NMaxMajorOBToShow);
+   //PlotOrderBlocks(minor_obs, "minor", STYLE_SOLID, 1, false, NMaxMinorOBToShow);
+   ChartRedraw(0);
+   Sleep(100);
+   return;
 
    double ask_price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
