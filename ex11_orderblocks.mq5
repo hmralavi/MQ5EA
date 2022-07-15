@@ -2,9 +2,10 @@
 
 TODO:
 DONE--> important: currently, we try to find the orderblock as a peak right after the broken peak. but in fact, it should be the peak right before the breaking candle.
+DONE--> trade only when the major orderblock is only touched two times or less
+should work on stoploss level more
 close half of the position on specific profit
 trade in market's direction
-trade only when the major orderblock is only touched two times or less
 
 
 */
@@ -12,11 +13,11 @@ trade only when the major orderblock is only touched two times or less
 
 input ENUM_TIMEFRAMES MinorTF = PERIOD_M5;
 input ENUM_TIMEFRAMES MajorTF = PERIOD_H1;
-input int NCandlesMinorTF = 48;
+input int NCandlesMinorTF = 500;
 input int NCandlesMajorTF = 720;
-input int NCandlesPeak = 10;
-input int NMaxMinorOBToShow = 3;
-input int NMaxMajorOBToShow = 3;
+input int NCandlesPeak = 6;
+input int NMaxMinorOBToShow = -1;
+input int NMaxMajorOBToShow = -1;
 input double LotSize = 0.1;
 input int SlPoints = 50;
 input double RRatio = 10;
@@ -64,7 +65,7 @@ void OnTick()
    DetectOrderBlocks(minor_obs, MinorTF, 0, NCandlesMinorTF, NCandlesPeak);
    
    ObjectsDeleteAll(0);
-   ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(MajorTF, 1, NCandlesMajorTF, NCandlesPeak);
+   //ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(MajorTF, 1, NCandlesMajorTF, NCandlesPeak);
    
    
    PlotPeaks(major_peaks, 3);
@@ -75,7 +76,7 @@ void OnTick()
    Sleep(100);
    //return;
    
-   if(market_trend==MARKET_TREND_NEUTRAL) return;
+   //if(market_trend==MARKET_TREND_NEUTRAL) return;
 
    double ask_price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -85,19 +86,26 @@ void OnTick()
    for(int imajor=0;imajor<nmajors;imajor++){
       if(!trade_allowed) break;
       if(major_obs[imajor].breaking_candle.low>0) continue; // check if the major zone is broken
-      if(bid_price<=major_obs[imajor].main_candle.high && bid_price>=major_obs[imajor].main_candle.low){
+      if(ArraySize(major_obs[imajor].touching_candles)>2) continue; // check if the major zone is touched more than two times
+      double ob_major_low;
+      double ob_major_high;
+      GetOrderBlockZone(major_obs[imajor], ob_major_low, ob_major_high);
+      if(bid_price<=ob_major_high && bid_price>=ob_major_low){
          for(int iminor=0;iminor<nminors;iminor++){
             if(minor_obs[iminor].isDemandZone != major_obs[imajor].isDemandZone) continue; // we want the minor and major zones to be of the same type demand/supply.
             if(minor_obs[iminor].breaking_candle.low>0) continue; // check if the minor zone is broken
-            if(bid_price<=minor_obs[iminor].main_candle.high && bid_price>=minor_obs[iminor].main_candle.low){
-               if(minor_obs[iminor].isDemandZone && market_trend==MARKET_TREND_BULLISH){ // open buy position
-                  double sl = minor_obs[iminor].main_candle.low - SlPoints * _Point;
+            double ob_minor_low;
+            double ob_minor_high;
+            GetOrderBlockZone(minor_obs[iminor], ob_minor_low, ob_minor_high);           
+            if(bid_price<=ob_minor_high && bid_price>=ob_minor_low){
+               if(minor_obs[iminor].isDemandZone ){ // open buy position
+                  double sl = ob_minor_low - SlPoints * _Point;
                   double tp = ask_price + RRatio * SlPoints * _Point;               
                   _slpoints = (bid_price - sl)/_Point;   
                   trade.Buy(LotSize, _Symbol, ask_price, sl, tp);
                   trade_allowed = false;
-               }else if(!minor_obs[iminor].isDemandZone && market_trend==MARKET_TREND_BEARISH){  // open sell position
-                  double sl = minor_obs[iminor].main_candle.high + SlPoints * _Point;
+               }else if(!minor_obs[iminor].isDemandZone ){  // open sell position
+                  double sl = ob_minor_high + SlPoints * _Point;
                   double tp = bid_price - RRatio * SlPoints * _Point;          
                   _slpoints = (sl - ask_price)/_Point;     
                   trade.Sell(LotSize, _Symbol, bid_price, sl, tp);

@@ -112,8 +112,8 @@ void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandle
       _isbottom = true;
       for(int i=-ncandles_peak; i<=ncandles_peak; i++){
          if(i==0) continue;
-         _istop = _istop && (mrate[icandle].high >= mrate[icandle+i].high+2.0*MathSqrt(MathAbs(i))*_Point);
-         _isbottom = _isbottom && (mrate[icandle].low <= mrate[icandle+i].low-2.0*MathSqrt(MathAbs(i))*_Point);
+         _istop = _istop && (mrate[icandle].high >= mrate[icandle+i].high+2.0*MathSqrt(MathAbs(i))*_Point);// && (mrate[icandle].low>=mrate[icandle+i].low-1.0*MathSqrt(MathAbs(i))*_Point);
+         _isbottom = _isbottom && (mrate[icandle].low <= mrate[icandle+i].low-2.0*MathSqrt(MathAbs(i))*_Point);// && (mrate[icandle].high<=mrate[icandle+i].high+1.0*MathSqrt(MathAbs(i))*_Point);
          if(!_istop && !_isbottom) break;
       }
       if(!_istop && !_isbottom) continue;
@@ -122,7 +122,7 @@ void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandle
       peaks[npeaks-1].isTop = _istop;
       peaks[npeaks-1].main_candle = mrate[icandle];
       peaks[npeaks-1].shift = icandle;
-      //icandle += 2;
+      icandle += ncandles_peak-1;
    }
 
 }
@@ -287,6 +287,11 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
    }                        
 }
 
+void GetOrderBlockZone(OrderBlockProperties& ob_candle, double& low_level, double& high_level){
+   low_level = ob_candle.isDemandZone?ob_candle.main_candle.low:MathMin(ob_candle.main_candle.open,ob_candle.main_candle.close);
+   high_level = ob_candle.isDemandZone?MathMax(ob_candle.main_candle.open,ob_candle.main_candle.close):ob_candle.main_candle.high;
+}
+
 void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LINE_STYLE line_style=STYLE_SOLID, int width=1 ,bool fill=false, int nMax=-1){
    int nob = ArraySize(obs);
    nMax = MathMin(nMax, nob);
@@ -297,7 +302,10 @@ void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LIN
       ENUM_OBJECT objtype = OBJ_RECTANGLE;
       color objclr = obs[iob].isDemandZone?clrGreen:clrRed;
       datetime endtime = obs[iob].breaking_candle.low==0?iTime(_Symbol,PERIOD_CURRENT,0):obs[iob].breaking_candle.time;
-      ObjectCreate(0, objname, objtype, 0, endtime, obs[iob].main_candle.high, obs[iob].main_candle.time, obs[iob].main_candle.low);
+      double low_level;
+      double high_level;
+      GetOrderBlockZone(obs[iob], low_level, high_level);
+      ObjectCreate(0, objname, objtype, 0, endtime, high_level, obs[iob].main_candle.time, low_level);
       ObjectSetInteger(0, objname, OBJPROP_COLOR, objclr);  
       ObjectSetInteger(0, objname, OBJPROP_STYLE, line_style);
       ObjectSetInteger(0, objname, OBJPROP_WIDTH, width);
