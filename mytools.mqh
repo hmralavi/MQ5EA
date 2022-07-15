@@ -111,8 +111,9 @@ void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandle
       _istop = true;
       _isbottom = true;
       for(int i=-ncandles_peak; i<=ncandles_peak; i++){
-         _istop = _istop && (mrate[icandle].high >= mrate[icandle+i].high);
-         _isbottom = _isbottom && (mrate[icandle].low <= mrate[icandle+i].low);
+         if(i==0) continue;
+         _istop = _istop && (mrate[icandle].high >= mrate[icandle+i].high+2.0*MathSqrt(MathAbs(i))*_Point);
+         _isbottom = _isbottom && (mrate[icandle].low <= mrate[icandle+i].low-2.0*MathSqrt(MathAbs(i))*_Point);
          if(!_istop && !_isbottom) break;
       }
       if(!_istop && !_isbottom) continue;
@@ -126,7 +127,7 @@ void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandle
 
 }
 
-bool GetExtremumPeak(PeakProperties& extremum_peak, PeakProperties& peaks[], bool findMax){
+bool GetExtremumPeak_notused(PeakProperties& extremum_peak, PeakProperties& peaks[], bool findMax){
    int npeaks = ArraySize(peaks);
    bool success = false;
    for(int i=0;i<npeaks;i++){
@@ -156,7 +157,7 @@ void PlotPeaks(PeakProperties& peaks[], int width=1){
 ENUM_MARKET_TREND_TYPE DetectPeaksTrend(ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
    PeakProperties peaks[];
    DetectPeaks(peaks, timeframe, start, count, ncandles_peak);
-   PlotPeaks(peaks);
+   PlotPeaks(peaks, 1);
    
    double tops[];
    double bottoms[];
@@ -174,6 +175,10 @@ ENUM_MARKET_TREND_TYPE DetectPeaksTrend(ENUM_TIMEFRAMES timeframe,int start, int
          ArrayResize(bottoms, nbottoms);
          bottoms[nbottoms-1] = peaks[i].main_candle.low;   
       }
+   }
+   
+   if(ntops<2 || nbottoms<2){
+      return MARKET_TREND_NEUTRAL;
    }
    
    double bid_price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
@@ -204,7 +209,7 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
                bool ob_found = false;
                if(ipeak>0){
                   if(peaks[ipeak-1].isTop!=peaks[ipeak].isTop && peaks[ipeak-1].shift>icandle){
-                     ob_peak=peaks[ipeak-1];
+                     ob_peak = peaks[ipeak-1];
                      ob_found = true;
                   }
                }
@@ -225,7 +230,7 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
                obs[nobs-1].isDemandZone = !ob_peak.isTop;
                obs[nobs-1].breaking_candle.low = 0; // this means the breaking candle is not detected yet
                int ntouches = 0;
-               for(int itouching=ob_peak.shift-ncandles_peak;itouching>=0;itouching--){
+               for(int itouching=icandle-1;itouching>=0;itouching--){
                   if(mrate[itouching].low<ob_peak.main_candle.high && mrate[itouching].low>ob_peak.main_candle.low){
                      ntouches++;
                      ArrayResize(obs[nobs-1].touching_candles, ntouches);
@@ -243,7 +248,7 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
                bool ob_found = false;
                if(ipeak>0){
                   if(peaks[ipeak-1].isTop!=peaks[ipeak].isTop && peaks[ipeak-1].shift>icandle){
-                     ob_peak=peaks[ipeak-1];
+                     ob_peak = peaks[ipeak-1];
                      ob_found = true;
                   }
                }
@@ -264,7 +269,7 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
                obs[nobs-1].isDemandZone = !ob_peak.isTop;
                obs[nobs-1].breaking_candle.low = 0; // this means the breaking candle is not detected yet
                int ntouches = 0;
-               for(int itouching=ob_peak.shift-ncandles_peak;itouching>=0;itouching--){
+               for(int itouching=icandle-1;itouching>=0;itouching--){
                   if(mrate[itouching].high>ob_peak.main_candle.low && mrate[itouching].high<ob_peak.main_candle.high){
                      ntouches++;
                      ArrayResize(obs[nobs-1].touching_candles, ntouches);
