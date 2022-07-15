@@ -1,9 +1,11 @@
 /*
 
-TODO: 
+TODO:
+DONE--> important: currently, we try to find the orderblock as a peak right after the broken peak. but in fact, it should be the peak right before the breaking candle.
 close half of the position on specific profit
 trade in market's direction
-important: currently, we try to find the orderblock as a peak right after the broken peak. but in fact, it should be the peak right before the breaking candle.
+trade only when the major orderblock is only touched two times or less
+
 
 */
 #include <../Experts/mq5ea/mytools.mqh>
@@ -62,12 +64,12 @@ void OnTick()
    DetectOrderBlocks(minor_obs, MinorTF, 0, NCandlesMinorTF, NCandlesPeak);
    
    ObjectsDeleteAll(0);
-   ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(PERIOD_M5, 1, NCandlesMajorTF, NCandlesPeak);
+   ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(MajorTF, 1, NCandlesMajorTF, NCandlesPeak);
    
    
-   //PlotPeaks(major_peaks, 3);
-   //PlotPeaks(minor_peaks, 1);
-   //PlotOrderBlocks(major_obs, "major", STYLE_SOLID, 2, false, NMaxMajorOBToShow);
+   PlotPeaks(major_peaks, 3);
+   PlotPeaks(minor_peaks, 1);
+   PlotOrderBlocks(major_obs, "major", STYLE_SOLID, 2, false, NMaxMajorOBToShow);
    PlotOrderBlocks(minor_obs, "minor", STYLE_SOLID, 1, false, NMaxMinorOBToShow);
    ChartRedraw(0);
    Sleep(100);

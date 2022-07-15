@@ -157,7 +157,7 @@ void PlotPeaks(PeakProperties& peaks[], int width=1){
 ENUM_MARKET_TREND_TYPE DetectPeaksTrend(ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
    PeakProperties peaks[];
    DetectPeaks(peaks, timeframe, start, count, ncandles_peak);
-   PlotPeaks(peaks, 1);
+   //PlotPeaks(peaks, 1);
    
    double tops[];
    double bottoms[];
@@ -199,7 +199,6 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
    PeakProperties peaks[];
    DetectPeaks(peaks, timeframe, start, count, ncandles_peak);
    int npeaks = ArraySize(peaks);
-   
    int nobs = 0;
    for(int ipeak=0;ipeak<npeaks;ipeak++){
       for(int icandle=peaks[ipeak].shift-1;icandle>=0;icandle--){
@@ -207,9 +206,10 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
             if(mrate[icandle].high>peaks[ipeak].main_candle.high && mrate[icandle].close>mrate[icandle].open){
                PeakProperties ob_peak;
                bool ob_found = false;
-               if(ipeak>0){
-                  if(peaks[ipeak-1].isTop!=peaks[ipeak].isTop && peaks[ipeak-1].shift>icandle){
-                     ob_peak = peaks[ipeak-1];
+               for(int isearch_ob_peak=ipeak-1;isearch_ob_peak>=0;isearch_ob_peak--){
+                  if(peaks[isearch_ob_peak].shift<=icandle) break;                     
+                  if(peaks[isearch_ob_peak].isTop!=peaks[ipeak].isTop){
+                     ob_peak = peaks[isearch_ob_peak];
                      ob_found = true;
                   }
                }
@@ -246,9 +246,10 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
             if(mrate[icandle].low<peaks[ipeak].main_candle.low && mrate[icandle].close<mrate[icandle].open){
                PeakProperties ob_peak;
                bool ob_found = false;
-               if(ipeak>0){
-                  if(peaks[ipeak-1].isTop!=peaks[ipeak].isTop && peaks[ipeak-1].shift>icandle){
-                     ob_peak = peaks[ipeak-1];
+               for(int isearch_ob_peak=ipeak-1;isearch_ob_peak>=0;isearch_ob_peak--){
+                  if(peaks[isearch_ob_peak].shift<=icandle) break;                     
+                  if(peaks[isearch_ob_peak].isTop!=peaks[ipeak].isTop){
+                     ob_peak = peaks[isearch_ob_peak];
                      ob_found = true;
                   }
                }
