@@ -3,11 +3,11 @@
 TODO:
 DONE--> important: currently, we try to find the orderblock as a peak right after the broken peak. but in fact, it should be the peak right before the breaking candle.
 DONE--> trade only when the major orderblock is only touched two times or less
-find order blocks based on imbalancing zone/candle.
+DONE--> find order blocks based on imbalancing zone/candle.
+DONE--> trade in market's direction
 set higher sl but on the other hand, place to on open price if we have reached an specific amount of loss. additionally, open a position in the opposite direction.
 should work on stoploss level more
 close half of the position on specific profit
-trade in market's direction
 
 
 
@@ -19,12 +19,15 @@ input ENUM_TIMEFRAMES MajorTF = PERIOD_H1;
 input int NCandlesMinorTF = 500;
 input int NCandlesMajorTF = 720;
 input int NCandlesPeak = 6;
+input bool ObMustHaveFVG = false;  // orderblock must be followed by fvg
 input int NMaxMinorOBToShow = -1;
 input int NMaxMajorOBToShow = -1;
 input double LotSize = 0.1;
 input int SlPoints = 50;
 input double RRatio = 10;
 input bool TSL_Enabled = true;  // Trailing stoploss enabled
+input bool TradeInMarketDirection = false;  // Trade in market's direction
+input ENUM_TIMEFRAMES MarketTrendTF = PERIOD_H1;
 input int Magic = 110;
 
 CTrade trade;
@@ -62,14 +65,13 @@ void OnTick()
    DetectPeaks(minor_peaks, MinorTF, 0, NCandlesMinorTF, NCandlesPeak);
    
    OrderBlockProperties major_obs[]; 
-   DetectOrderBlocks(major_obs, MajorTF, 0, NCandlesMajorTF, NCandlesPeak);
+   DetectOrderBlocks(major_obs, MajorTF, 0, NCandlesMajorTF, NCandlesPeak, ObMustHaveFVG);
 
    OrderBlockProperties minor_obs[]; 
-   DetectOrderBlocks(minor_obs, MinorTF, 0, NCandlesMinorTF, NCandlesPeak);
+   DetectOrderBlocks(minor_obs, MinorTF, 0, NCandlesMinorTF, NCandlesPeak, ObMustHaveFVG);
    
    ObjectsDeleteAll(0);
-   //ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(MajorTF, 1, NCandlesMajorTF, NCandlesPeak);
-   
+   ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(MarketTrendTF, 1, NCandlesMajorTF, NCandlesPeak);   
    
    PlotPeaks(major_peaks, 3);
    PlotPeaks(minor_peaks, 1);
@@ -77,9 +79,9 @@ void OnTick()
    PlotOrderBlocks(minor_obs, "minor", STYLE_SOLID, 1, false, NMaxMinorOBToShow);
    ChartRedraw(0);
    Sleep(100);
-   return;
+   //return;
    
-   //if(market_trend==MARKET_TREND_NEUTRAL) return;
+   if(market_trend==MARKET_TREND_NEUTRAL && TradeInMarketDirection) return;
 
    double ask_price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -101,13 +103,13 @@ void OnTick()
             double ob_minor_high;
             GetOrderBlockZone(minor_obs[iminor], ob_minor_low, ob_minor_high);           
             if(bid_price<=ob_minor_high && bid_price>=ob_minor_low){
-               if(minor_obs[iminor].isDemandZone ){ // open buy position
+               if(minor_obs[iminor].isDemandZone && (market_trend==MARKET_TREND_BULLISH || !TradeInMarketDirection)){ // open buy position
                   double sl = ob_minor_low - SlPoints * _Point;
                   double tp = ask_price + RRatio * SlPoints * _Point;               
                   _slpoints = (bid_price - sl)/_Point;   
                   trade.Buy(LotSize, _Symbol, ask_price, sl, tp);
                   trade_allowed = false;
-               }else if(!minor_obs[iminor].isDemandZone ){  // open sell position
+               }else if(!minor_obs[iminor].isDemandZone && (market_trend==MARKET_TREND_BEARISH || !TradeInMarketDirection)){  // open sell position
                   double sl = ob_minor_high + SlPoints * _Point;
                   double tp = bid_price - RRatio * SlPoints * _Point;          
                   _slpoints = (sl - ask_price)/_Point;     
