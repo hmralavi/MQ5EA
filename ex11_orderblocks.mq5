@@ -3,9 +3,12 @@
 TODO:
 DONE--> important: currently, we try to find the orderblock as a peak right after the broken peak. but in fact, it should be the peak right before the breaking candle.
 DONE--> trade only when the major orderblock is only touched two times or less
+find order blocks based on imbalancing zone/candle.
+set higher sl but on the other hand, place to on open price if we have reached an specific amount of loss. additionally, open a position in the opposite direction.
 should work on stoploss level more
 close half of the position on specific profit
 trade in market's direction
+
 
 
 */
@@ -74,7 +77,7 @@ void OnTick()
    PlotOrderBlocks(minor_obs, "minor", STYLE_SOLID, 1, false, NMaxMinorOBToShow);
    ChartRedraw(0);
    Sleep(100);
-   //return;
+   return;
    
    //if(market_trend==MARKET_TREND_NEUTRAL) return;
 
@@ -85,7 +88,7 @@ void OnTick()
    bool trade_allowed = true;
    for(int imajor=0;imajor<nmajors;imajor++){
       if(!trade_allowed) break;
-      if(major_obs[imajor].breaking_candle.low>0) continue; // check if the major zone is broken
+      if(major_obs[imajor].isBroken) continue; // check if the major zone is broken
       if(ArraySize(major_obs[imajor].touching_candles)>2) continue; // check if the major zone is touched more than two times
       double ob_major_low;
       double ob_major_high;
@@ -93,7 +96,7 @@ void OnTick()
       if(bid_price<=ob_major_high && bid_price>=ob_major_low){
          for(int iminor=0;iminor<nminors;iminor++){
             if(minor_obs[iminor].isDemandZone != major_obs[imajor].isDemandZone) continue; // we want the minor and major zones to be of the same type demand/supply.
-            if(minor_obs[iminor].breaking_candle.low>0) continue; // check if the minor zone is broken
+            if(minor_obs[iminor].isBroken) continue; // check if the minor zone is broken
             double ob_minor_low;
             double ob_minor_high;
             GetOrderBlockZone(minor_obs[iminor], ob_minor_low, ob_minor_high);           
