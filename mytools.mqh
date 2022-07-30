@@ -301,3 +301,10 @@ void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LIN
       ObjectSetInteger(0, objname, OBJPROP_FILL, fill);
    }
 }
+
+bool is_session_time_allowed(string session_start_time, string session_end_time){
+   datetime   _start = StringToTime(session_start_time);
+   datetime   _finish = StringToTime(session_end_time);
+   datetime _currentservertime = TimeCurrent();
+   return _currentservertime>=_start && _currentservertime<=_finish;
+}
