@@ -67,7 +67,14 @@ void DeleteAllOrders(CTrade& trade){
    ulong order_tickets[];
    GetMyOrdersTickets(trade.RequestMagic(), order_tickets);
    int nords = ArraySize(order_tickets);
-   for(uint i=0; i<nords; i++) trade.OrderDelete(order_tickets[i]);
+   for(int i=0; i<nords; i++) trade.OrderDelete(order_tickets[i]);
+}
+
+void CloseAllPositions(CTrade& trade){
+   ulong position_tickets[];
+   GetMyPositionsTickets(trade.RequestMagic(), position_tickets);
+   int npos = ArraySize(position_tickets);
+   for(int i=0; i<npos; i++) trade.PositionClose(position_tickets[i]);
 }
 
 void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double trigger_points=0){

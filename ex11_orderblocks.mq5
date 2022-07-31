@@ -36,6 +36,7 @@ double _slpoints;
 int OnInit()
 {
    trade.SetExpertMagicNumber(Magic);
+   ObjectsDeleteAll(0);
    return(INIT_SUCCEEDED);
 }
 

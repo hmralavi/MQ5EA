@@ -51,6 +51,7 @@ void OnInit()
    IndicatorSetString(INDICATOR_SHORTNAME,"Heiken Ashi & MA");
 //--- sets drawing line empty value
    PlotIndexSetDouble(0,PLOT_EMPTY_VALUE,0.0);
+   PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, 0.0);
   }
 //+------------------------------------------------------------------+
 //| Heiken Ashi                                                      |
