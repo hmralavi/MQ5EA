@@ -9,6 +9,7 @@ input int ma_fast_period = 1;
 input int ma_slow_shift = 0;
 input int ma_fast_shift = 0;
 input double lot_size = 0.1;
+input bool trade_only_in_session_time = false;
 input string session_start_time = "09:00";      // session start (server time)
 input string session_end_time = "19:00";        // session end (server time)    
 input int Magic = 120;
@@ -35,12 +36,6 @@ void OnDeinit(const int reason)
 
 void OnTick()
 {  
-   ulong pos_tickets[];
-   GetMyPositionsTickets(trade.RequestMagic(), pos_tickets);
-   int npos = ArraySize(pos_tickets);
-   for(int ipos=0;ipos<npos-1;ipos++){
-      trade.PositionClose(pos_tickets[ipos]);
-   }
    if(!IsNewCandle(fast_tf)) return;   
    double slow_ma[2], fast_ma[2];
    CopyBuffer(slow_heiken_ashi_handle, HA_MA_BUFFER, 1+ma_slow_shift, 2, slow_ma);
@@ -48,11 +43,13 @@ void OnTick()
    ArrayReverse(slow_ma, 0, WHOLE_ARRAY);
    ArrayReverse(fast_ma, 0, WHOLE_ARRAY);
    if(fast_ma[0]>slow_ma[0] && fast_ma[1]<slow_ma[1] && fast_ma[0]>fast_ma[1]){ // up cross
-      CloseAllPositions(trade);
+      force_close_all_positions();
+      if(!is_session_time_allowed(session_start_time, session_end_time) && trade_only_in_session_time) return;
       double ask_price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       trade.Buy(lot_size, _Symbol, ask_price);
    }else if(fast_ma[0]<slow_ma[0] && fast_ma[1]>slow_ma[1] && fast_ma[0]<fast_ma[1]){ // down cross
-      CloseAllPositions(trade);
+      force_close_all_positions();
+      if(!is_session_time_allowed(session_start_time, session_end_time) && trade_only_in_session_time) return;
       double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       trade.Sell(lot_size, _Symbol, bid_price);      
    }
@@ -61,4 +58,14 @@ void OnTick()
 void OnTrade()
 {
 
+}
+
+void force_close_all_positions(){
+   bool success = false;
+   while(!success){
+      CloseAllPositions(trade);
+      ulong pos_tickets[];
+      GetMyPositionsTickets(trade.RequestMagic(), pos_tickets);
+      success = ArraySize(pos_tickets)==0;
+   }
 }
