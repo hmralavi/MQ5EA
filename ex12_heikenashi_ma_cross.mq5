@@ -1,13 +1,18 @@
+/*
+TODO:
+   1-open the position only with half of lotsize. then place an order for the other half by a specific offset.
+      also, close half of the position when reaching an specific profit.
+      how to determine the offset? when backtesting, calculate that how much a position goes into loss or profit(maximum). then calculate mean or std these values.      
+*/
+
 #include <../Experts/mq5ea/mytools.mqh>
 
-input ENUM_TIMEFRAMES slow_tf = PERIOD_H3;
-input ENUM_TIMEFRAMES fast_tf = PERIOD_H1;
-//input int slow_tf_shift = 0;
-//input int fast_tf_shift = 0;
-input int ma_slow_period = 30;
-input int ma_fast_period = 1;
-input int ma_slow_shift = 0;
-input int ma_fast_shift = 0;
+input ENUM_TIMEFRAMES slow_tf = PERIOD_H1;
+input ENUM_TIMEFRAMES fast_tf = PERIOD_M30;
+input int ma_slow_period = 20;
+input int ma_fast_period = 7;
+input int ma_slow_shift = 1;
+input int ma_fast_shift = 2;
 input double lot_size = 0.1;
 input bool trade_only_in_session_time = false;
 input string session_start_time = "09:00";      // session start (server time)
