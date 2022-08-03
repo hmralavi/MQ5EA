@@ -76,7 +76,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
                         const MqlTradeRequest& request,
                         const MqlTradeResult& result)
 {
-   DeleteAllOrders(trade);
+   //DeleteAllOrders(trade);
 }
   
 
