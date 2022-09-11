@@ -52,6 +52,10 @@ void OnInit()
 //--- sets drawing line empty value
    PlotIndexSetDouble(0,PLOT_EMPTY_VALUE,0.0);
    PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, 0.0);
+   
+   ChartSetInteger(0, CHART_MODE, CHART_LINE);
+   color clr = ChartGetInteger(0, CHART_COLOR_BACKGROUND);
+   ChartSetInteger(0, CHART_COLOR_CHART_LINE, clr);
   }
 //+------------------------------------------------------------------+
 //| Heiken Ashi                                                      |
