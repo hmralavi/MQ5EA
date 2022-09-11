@@ -214,8 +214,8 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
    for(int ipeak=0;ipeak<npeaks;ipeak++){
       for(int icandle=peaks[ipeak].shift-1;icandle>=0;icandle--){
          //--- find the candle which breaks the peak
-         if((peaks[ipeak].isTop && mrate[icandle].high>peaks[ipeak].main_candle.high && mrate[icandle].close>mrate[icandle].open) ||
-            (!peaks[ipeak].isTop && mrate[icandle].low<peaks[ipeak].main_candle.low && mrate[icandle].close<mrate[icandle].open)){
+         if((peaks[ipeak].isTop && mrate[icandle].high>peaks[ipeak].main_candle.high) ||
+            (!peaks[ipeak].isTop && mrate[icandle].low<peaks[ipeak].main_candle.low)){
             PeakProperties ob_peak;
             bool ob_found = false;
             //--- find the orderblock as the peak right before the breaking candle    
@@ -245,8 +245,8 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
                if(ob_peak.shift<2){
                   ob_found = false;
                }else{           
-                  if(!( (peaks[ipeak].isTop  && mrate[ob_peak.shift].high<mrate[ob_peak.shift-2].low && (mrate[ob_peak.shift-1].close-mrate[ob_peak.shift-1].open)/(mrate[ob_peak.shift-1].high-mrate[ob_peak.shift-1].low)>0.7) || 
-                        (!peaks[ipeak].isTop && mrate[ob_peak.shift].low>mrate[ob_peak.shift-2].high && (mrate[ob_peak.shift-1].open-mrate[ob_peak.shift-1].close)/(mrate[ob_peak.shift-1].high-mrate[ob_peak.shift-1].low)>0.7) )){
+                  if(!( (peaks[ipeak].isTop  && mrate[ob_peak.shift].high<mrate[ob_peak.shift-2].low && (mrate[ob_peak.shift-1].close-mrate[ob_peak.shift-1].open)/(mrate[ob_peak.shift-1].high-mrate[ob_peak.shift-1].low)>0.5) || 
+                        (!peaks[ipeak].isTop && mrate[ob_peak.shift].low>mrate[ob_peak.shift-2].high && (mrate[ob_peak.shift-1].open-mrate[ob_peak.shift-1].close)/(mrate[ob_peak.shift-1].high-mrate[ob_peak.shift-1].low)>0.5) )){
                      ob_found = false;
                   }
                }
@@ -286,6 +286,8 @@ void DetectOrderBlocks(OrderBlockProperties& obs[], ENUM_TIMEFRAMES timeframe, i
 void GetOrderBlockZone(OrderBlockProperties& ob_candle, double& low_level, double& high_level){
    low_level = ob_candle.isDemandZone?ob_candle.main_candle.low:MathMin(ob_candle.main_candle.open,ob_candle.main_candle.close);
    high_level = ob_candle.isDemandZone?MathMax(ob_candle.main_candle.open,ob_candle.main_candle.close):ob_candle.main_candle.high;
+   //low_level = ob_candle.main_candle.low;
+   //high_level = ob_candle.main_candle.high;
 }
 
 void PlotOrderBlocks(OrderBlockProperties& obs[],string name_prefix="", ENUM_LINE_STYLE line_style=STYLE_SOLID, int width=1 ,bool fill=false, int nMax=-1){

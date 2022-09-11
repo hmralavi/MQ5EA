@@ -18,8 +18,9 @@ TODO:
 
 input double Lots = 0.01;
 input double LotFactor = 2;
-input int TpPoints = 300;
-input int SlPoints = 200;
+input double LotLimit = 0.2;
+input int TpPoints = 30;
+input int SlPoints = 30;
 input int Magic = 111;
 
 CTrade trade;
@@ -86,7 +87,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
                buy = !buy;
                adaptiveLots = Lots;
             }else{
-               adaptiveLots = NormalizeDouble(deal.Volume() * LotFactor, 2);
+               adaptiveLots = MathMin(NormalizeDouble(deal.Volume() * LotFactor, 2), LotLimit);
                if(deal.DealType()==DEAL_TYPE_BUY){
                   buy = true;      
                }else if(deal.DealType()==DEAL_TYPE_SELL){
