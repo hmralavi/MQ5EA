@@ -15,10 +15,10 @@
 #property indicator_buffers   7
 #property indicator_plots     2
 #property indicator_type1     DRAW_COLOR_CANDLES
-#property indicator_color1    DodgerBlue, Red
+#property indicator_color1    clrDodgerBlue, clrRed
 #property indicator_label1    "Heiken Ashi Open;Heiken Ashi High;Heiken Ashi Low;Heiken Ashi Close"
-#property indicator_type2     DRAW_COLOR_LINE
-#property indicator_color2    Blue
+#property indicator_type2     DRAW_LINE
+#property indicator_color2    clrBlue
 #property indicator_label2    "MA"
 
 input ENUM_MA_METHOD MAMethod = MODE_EMA;
