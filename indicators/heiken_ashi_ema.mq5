@@ -89,27 +89,27 @@ int OnCalculate(const int rates_total,
       double ha_high = MathMax(high[i],MathMax(ha_open,ha_close));
       double ha_low = MathMin(low[i],MathMin(ha_open,ha_close));
       double ma;
+      ExtLBuffer[i]=ha_low;
+      ExtHBuffer[i]=ha_high;
+      ExtOBuffer[i]=ha_open;
+      ExtCBuffer[i]=ha_close;
       switch(MAMethod){
          case MODE_EMA:
-            ma = ExponentialMA(i, MAPeriod, ExtMABuffer[i-1], close);
+            ma = ExponentialMA(i, MAPeriod, ExtMABuffer[i-1], ExtCBuffer);
             break;
          case MODE_SMA:
-            ma = SimpleMA(i, MAPeriod, close);
+            ma = SimpleMA(i, MAPeriod, ExtCBuffer);
             break;
          case MODE_SMMA:
-            ma = SmoothedMA(i, MAPeriod, ExtMABuffer[i-1], close);
+            ma = SmoothedMA(i, MAPeriod, ExtMABuffer[i-1], ExtCBuffer);
             break;
          case MODE_LWMA:
-            ma = LinearWeightedMA(i, MAPeriod, close);
+            ma = LinearWeightedMA(i, MAPeriod, ExtCBuffer);
             break;
          default:
            ma = 0;
            break;
       }
-      ExtLBuffer[i]=ha_low;
-      ExtHBuffer[i]=ha_high;
-      ExtOBuffer[i]=ha_open;
-      ExtCBuffer[i]=ha_close;
       ExtMABuffer[i]=ma;
       ExtMAColorBuffer[i]=0.0;
 
