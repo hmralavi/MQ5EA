@@ -24,9 +24,9 @@
 #property indicator_label2    "MA"
 
 #property indicator_label3 "UP"
-#property indicator_color3 clrCyan  // up[] DodgerBlue
+#property indicator_color3 clrDodgerBlue // up[] DodgerBlue
 #property indicator_type3  DRAW_COLOR_LINE
-//#property indicator_width3 2
+#property indicator_width3 2
 
 #property indicator_label4 "DN"
 #property indicator_color4 clrOrange       // down[]
@@ -259,7 +259,7 @@ int OnCalculate(const int rates_total,
       lowprice_i = HAL[i];
       highprice_i = HAH[i];
 
-      for(int j=MathMax(i-Amplitude,0);j<=i;j++){
+      for(int j=MathMax(i-Amplitude+1,0);j<=i;j++){
          if(HAL[j]<lowprice_i) lowprice_i = HAL[j];
          if(HAH[j]>highprice_i) highprice_i = HAH[j];
       }
@@ -297,7 +297,7 @@ int OnCalculate(const int rates_total,
          if(trend[i - 1] != 0.0)
          {
             up[i] = down[i - 1];
-            up[i + 1] = up[i];
+            up[i - 1] = up[i];
             arrup[i] = up[i] - 2 * atr;
          }
          else
