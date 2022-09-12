@@ -1,41 +1,36 @@
 #include <MovingAverages.mqh>
 
 #property indicator_chart_window
-#property indicator_buffers   20
-#property indicator_plots     7
+#property indicator_buffers   18
+#property indicator_plots     6
 
 #property indicator_type1     DRAW_COLOR_CANDLES
 #property indicator_color1    clrGreen, clrRed
-#property indicator_label1    "Heiken Ashi Candles"
+#property indicator_label1    "HAO;HAH;HAL;HAC"
 
 #property indicator_type2     DRAW_COLOR_LINE
 #property indicator_color2    clrBlue
 #property indicator_label2    "MA"
 
-#property indicator_label3 "UPTrendLine"
-#property indicator_color3 clrDodgerBlue // up[] DodgerBlue
+#property indicator_label3 "TrendLine"
+#property indicator_color3 clrDodgerBlue, clrOrange // up[] DodgerBlue
 #property indicator_type3  DRAW_COLOR_LINE
 #property indicator_width3 2
 
-#property indicator_label4 "DownTrendLine"
-#property indicator_color4 clrOrange       // down[]
+#property indicator_label4 "ATR Line"
+#property indicator_color4 clrGray // atrlo[],atrhi[]
 #property indicator_type4  DRAW_COLOR_LINE
-#property indicator_width4 2
+#property indicator_width4 1
 
-#property indicator_label5 "ATR Line"
-#property indicator_color5 clrGray // atrlo[],atrhi[]
-#property indicator_type5  DRAW_COLOR_LINE
+#property indicator_label5 "Arrow-UP"
+#property indicator_color5 clrDodgerBlue  // arrup[]
+#property indicator_type5  DRAW_ARROW
 #property indicator_width5 1
 
-#property indicator_label6 "Arrow-UP"
-#property indicator_color6 clrDodgerBlue  // arrup[]
+#property indicator_label6 "Arrow-DOWN"
+#property indicator_color6 clrRed  // arrdwn[]
 #property indicator_type6  DRAW_ARROW
 #property indicator_width6 1
-
-#property indicator_label7 "Arrow-DOWN"
-#property indicator_color7 clrRed  // arrdwn[]
-#property indicator_type7  DRAW_ARROW
-#property indicator_width7 1
 
 
 input bool UseHeikenAshiCandles = true;
@@ -43,7 +38,7 @@ input ENUM_MA_METHOD MAMethod = MODE_EMA;
 input int    MAPeriod         = 200;
 input int    Amplitude        = 3;
 input int    AtrPeriod        = 100;
-input int    ChannelDeviation = 2; 
+input double    ChannelDeviation = 2.0; 
 input bool   ShowAtr          = true;
 input bool   ShowArrows       = false;
 input bool   alertsOn         = false;
@@ -55,7 +50,7 @@ input bool   alertsEmail      = false;
 //--- indicator buffers
 double HAO[], HAH[], HAL[], HAC[], HAClr[]; // heiken ashi candles
 double MA[], MAClr[];  // MA line 
-double up[], upclr[], down[], downclr[], trend[];  // halftrend line
+double updown[], updownclr[], trend[];  // halftrend line
 double atr[], atrclr[];  // atr line
 double arrup[], arrdwn[];  // arrow shapes
 double iMAHigh[], iMALow[], iATRx[], iTRx[];  //  indicator calculations buffers
@@ -73,41 +68,38 @@ void OnInit()
    SetIndexBuffer(4, HAClr, INDICATOR_COLOR_INDEX);
    SetIndexBuffer(5, MA, INDICATOR_DATA);
    SetIndexBuffer(6, MAClr, INDICATOR_COLOR_INDEX);   
-   SetIndexBuffer(7, up, INDICATOR_DATA);
-   SetIndexBuffer(8, upclr, INDICATOR_COLOR_INDEX);
-   SetIndexBuffer(9, down, INDICATOR_DATA);
-   SetIndexBuffer(10, downclr, INDICATOR_COLOR_INDEX);
-   SetIndexBuffer(11, atr, INDICATOR_DATA);
-   SetIndexBuffer(12, atrclr, INDICATOR_COLOR_INDEX);
-   SetIndexBuffer(13, arrup, INDICATOR_DATA);
-   SetIndexBuffer(14, arrdwn, INDICATOR_DATA);
-   SetIndexBuffer(15, trend, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(16, iMAHigh, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(17, iMALow, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(18, iATRx, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(19, iTRx, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(7, updown, INDICATOR_DATA);
+   SetIndexBuffer(8, updownclr, INDICATOR_COLOR_INDEX);
+   SetIndexBuffer(9, atr, INDICATOR_DATA);
+   SetIndexBuffer(10, atrclr, INDICATOR_COLOR_INDEX);
+   SetIndexBuffer(11, arrup, INDICATOR_DATA);
+   SetIndexBuffer(12, arrdwn, INDICATOR_DATA);
+   SetIndexBuffer(13, trend, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(14, iMAHigh, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(15, iMALow, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(16, iATRx, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(17, iTRx, INDICATOR_CALCULATIONS);
    
    PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, 0.0);
    PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, 0.0);
    PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, 0.0);
-   PlotIndexSetDouble(3, PLOT_EMPTY_VALUE, 0.0);
    
    ChartSetInteger(0, CHART_MODE, CHART_LINE);
    ChartSetInteger(0, CHART_COLOR_CHART_LINE, ChartGetInteger(0, CHART_COLOR_BACKGROUND));
 
    if(!ShowAtr){
-      PlotIndexSetInteger(4,PLOT_LINE_COLOR,0,clrNONE); 
+      PlotIndexSetInteger(3,PLOT_LINE_COLOR,0,clrNONE); 
    }else{
-      PlotIndexSetInteger(4,PLOT_LINE_COLOR,0,clrGray); 
+      PlotIndexSetInteger(3,PLOT_LINE_COLOR,0,clrGray); 
    }
    if(!ShowArrows){
+      PlotIndexSetInteger(4, PLOT_DRAW_TYPE, DRAW_NONE);
       PlotIndexSetInteger(5, PLOT_DRAW_TYPE, DRAW_NONE);
-      PlotIndexSetInteger(6, PLOT_DRAW_TYPE, DRAW_NONE);
    }else{
+      PlotIndexSetInteger(4, PLOT_DRAW_TYPE, DRAW_ARROW);
       PlotIndexSetInteger(5, PLOT_DRAW_TYPE, DRAW_ARROW);
-      PlotIndexSetInteger(6, PLOT_DRAW_TYPE, DRAW_ARROW);
-      PlotIndexSetInteger(5, PLOT_ARROW, 225);     //233
-      PlotIndexSetInteger(6, PLOT_ARROW, 226);     //234
+      PlotIndexSetInteger(4, PLOT_ARROW, 225);     //233
+      PlotIndexSetInteger(5, PLOT_ARROW, 226);     //234
    }
    nexttrend = 0;
    minhighprice = iHigh(NULL, 0, 0);
@@ -152,6 +144,10 @@ int OnCalculate(const int rates_total,
          HAH[i] = high[i];
          HAL[i] = low[i];   
       }
+      HAO[i] = NormalizeDouble(HAO[i], _Digits);
+      HAC[i] = NormalizeDouble(HAC[i], _Digits);
+      HAH[i] = NormalizeDouble(HAH[i], _Digits);
+      HAL[i] = NormalizeDouble(HAL[i], _Digits);
       HAClr[i]=HAO[i]<HAC[i]?0.0:1.0; // set candle color
       
       //--- calculate MAs
@@ -174,6 +170,7 @@ int OnCalculate(const int rates_total,
            MA[i] = 0;
            break;
       }     
+      MA[i] = NormalizeDouble(MA[i], _Digits);
       MAClr[i]=0.0;
    }
 
@@ -212,27 +209,26 @@ int OnCalculate(const int rates_total,
       //---
       if(trend[i] == 0.0){
          if(trend[i - 1] != 0.0){
-            up[i] = down[i - 1];
-            up[i - 1] = up[i];
-            arrup[i] = up[i] - 2 * atr_;
+            updown[i] = updown[i-1];
+            arrup[i] = updown[i] - 2 * atr_;
          }else{
-            up[i] = MathMax(maxlowprice, up[i - 1]);
+            updown[i] = MathMax(maxlowprice, updown[i-1]);
          }
-         atr[i] = up[i] - atr_;
-         atrclr[i] = 0;
-         down[i] = 0.0;
+         updownclr[i] = 0.0;
+         atr[i] = updown[i] - atr_;
       }else{
          if(trend[i - 1] != 1.0){
-            down[i] = up[i - 1];
-            down[i - 1] = down[i];
-            arrdwn[i] = down[i] + 2 * atr_;
+            updown[i] = updown[i-1];            
+            arrdwn[i] = updown[i] + 2 * atr_;
          }else{
-            down[i] = MathMin(minhighprice, down[i - 1]);
+            updown[i] = MathMin(minhighprice, updown[i-1]);
          }
-         atr[i] = down[i] + atr_;
-         atrclr[i] = 0;
-         up[i] = 0.0;
+         updownclr[i] = 1.0;         
+         atr[i] = updown[i] + atr_;
       }
+      updown[i] = NormalizeDouble(updown[i], _Digits);
+      atr[i] = NormalizeDouble(atr[i], _Digits);
+      atrclr[i] = 0.0;
    }
    //---
    manageAlerts();
