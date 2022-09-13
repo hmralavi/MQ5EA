@@ -5,7 +5,8 @@ input int market_open_minute = 0;
 input int market_close_hour = 11;
 input int market_close_minute = 0;
 input bool trade_double_side_break = false;
-input double risk = 5;  // risk %
+input double break_offset_points = 10;
+input double risk = 10;  // risk %
 input int nOrders =10;
 input int Rr = 2;
 input bool riskfree = false;
@@ -15,7 +16,6 @@ input int market_terminate_minute = 0;
 int Magic = 140;
 CTrade trade;
 string _MO,_MC,_MT;
-bool searching_for_entry = false;
 MqlRates ML, MH; // market low, high
 bool market_lh_calculated = false;
 
@@ -48,15 +48,50 @@ void OnTick()
       market_lh_calculated = false;
       return;
    }
+
+   if(!market_lh_calculated){
+      calculate_market_low_high();
+      market_lh_calculated = true;
+      ObjectsDeleteAll(0);
+      ObjectCreate(0, "marketlh", OBJ_RECTANGLE, 0, MC, MH.high, MO, ML.low);     
+   }
    
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;
    
-   if(!market_lh_calculated){
-      calculate_market_low_high();
-      market_lh_calculated = true;
+   if((iClose(_Symbol,_Period,1) > MH.high + break_offset_points*_Point)){
+      double p1 = ML.low;
+      double p2 = MH.high;
+      double meanp = (p1 + p2)/2;
+      double sl = p1 - break_offset_points*_Point;
+      double tp = p2 + Rr * (p2-p1);
+      double lot = calculate_lot_size((meanp-sl)/_Point, risk);
+      double p;
+      double lot_ = NormalizeDouble(lot/nOrders, 2);
+      for(int i=0;i<nOrders;i++){
+         p = i*(p2-p1)/(nOrders-1) + p1;
+         p = NormalizeDouble(p, _Digits);
+         trade.BuyLimit(lot_, p, _Symbol, sl, tp);
+      }
+      return;
+      
+   }else if((iClose(_Symbol,_Period,1) < ML.low - break_offset_points*_Point)){
+      double p1 = MH.high;
+      double p2 = ML.low;
+      double meanp = (p1 + p2)/2;
+      double sl = p1 + break_offset_points*_Point;
+      double tp = p2 - Rr * (p1-p2);
+      double lot = calculate_lot_size((sl-meanp)/_Point, risk);
+      double p;
+      double lot_ = NormalizeDouble(lot/nOrders, 2);
+      for(int i=0;i<nOrders;i++){
+         p = i*(p2-p1)/(nOrders-1) + p1;
+         p = NormalizeDouble(p, _Digits);
+         trade.SellLimit(lot_, p, _Symbol, sl, tp);
+      }
+      return;
    }
    
    
@@ -68,17 +103,21 @@ void calculate_market_low_high(){
    ArraySetAsSeries(mrate, true);
    int st = iBarShift(_Symbol, _Period, MC);
    int en = iBarShift(_Symbol, _Period, MO);
-   CopyRates(_Symbol,_Period,st,en-st,mrate)<0){
-      Alert(__FUNCTION__, "-->Error copying rates/history data - error:",GetLastError(),"!!");
-      ResetLastError();
-      return;
-   }
+   CopyRates(_Symbol,_Period,st,en-st+1,mrate);
    MqlRates ml = mrate[0];
    MqlRates mh = mrate[0];
-   for(int i=0;i<en-st;i++){
-      if(mrate[i].low<ml.low) ml = mrate[i]
-      if(mrate[i].high>mh.high) mh = mrate[i]
+   for(int i=0;i<en-st+1;i++){
+      if(mrate[i].low<ml.low) ml = mrate[i];
+      if(mrate[i].high>mh.high) mh = mrate[i];
    }
    ML = ml;
    MH = mh;
+}
+
+double calculate_lot_size(double slpoints, double risk){
+   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double riskusd = risk * balance / 100;
+   double lot = riskusd/slpoints;
+   lot = NormalizeDouble((MathFloor(lot*100/2)*2)/100,2);
+   return lot;
 }
