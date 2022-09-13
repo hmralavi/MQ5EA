@@ -125,7 +125,7 @@ int OnCalculate(const int rates_total,
       MA[0]=close[0];
       iMAHigh[0]=high[0];
       iMALow[0]=low[0];
-      trend[0]=close[0];
+      trend[0]=0.0;
       start=1;
    }else{
       start=prev_calculated-1;

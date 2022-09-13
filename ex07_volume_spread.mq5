@@ -22,10 +22,11 @@ input int ma2_period = 40;  // MA2 period.
 input double lot_size = 0.01;  // Lot Size.
 input double stop_loss = 30;  // stoploss offset to the candles high/low
 input float take_profit = 50;  // take profit
-input string session_start_time = "09:00";      // session start (server time)
-input string session_end_time = "17:00";        // session end (server time)    
+input bool trade_only_in_session_time = true;
+input string session_start_time = "08:00";      // session start (server time)
+input string session_end_time = "20:00";        // session end (server time)    
 
-int magic_number=12345;
+int magic_number=70;
 int ma1_handle;
 int ma2_handle;
 int rsi_handle;
@@ -82,7 +83,8 @@ void OnTick()
    if(!is_new_bar()) return;
    
    // check if we are in the allowed trading time
-   if(!is_session_time_allowed()) return;
+   if(!is_session_time_allowed() && trade_only_in_session_time) return;
+
      
    // check the market trend
    MarketTrendType market_trend = check_market_trend();

@@ -9,7 +9,7 @@ input int ma_period = 200;
 input int amplitude = 3;
 input int atr_period = 14;
 input double atr_channel_deviation = 2.0;
-input double risk_per_trade = 0.01;  // risk
+input double risk_per_trade = 2;  // risk %
 input double rr_factor = 2;
 input bool trade_only_in_session_time = false;
 input string session_start_time = "09:00";      // session start (server time)
@@ -100,7 +100,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
 
 double calculate_lot_size(double slpoints, double risk){
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
-   double riskusd = risk * balance;
+   double riskusd = risk * balance / 100;
    //double contract = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_CONTRACT_SIZE);
    double lot = riskusd/slpoints;
    lot = NormalizeDouble((MathFloor(lot*100/2)*2)/100,2);
