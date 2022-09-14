@@ -18,10 +18,9 @@ input int Magic = 130;
 
 CTrade trade;
 int heiken_ashi_handle;
-double hao[], hac[], ma[], updown[], atr[];
+double hac[], ma[], updown[], atr[];
 double sl, tp1, tp2, entry_price;
 
-#define HAO_BUFFER 0
 #define HAC_BUFFER 3
 #define MA_BUFFER 5
 #define UPDOWN_BUFFER 8
@@ -46,29 +45,27 @@ void OnTick(){
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
    if(ArraySize(pos_tickets)>0 || ArraySize(ord_tickets)>0) return;
-   CopyBuffer(heiken_ashi_handle, HAO_BUFFER, 0, 2, hao);
    CopyBuffer(heiken_ashi_handle, HAC_BUFFER, 1, 2, hac);
-   CopyBuffer(heiken_ashi_handle, MA_BUFFER, 1, 2, ma);
-   CopyBuffer(heiken_ashi_handle, UPDOWN_BUFFER, 1, 2, updown);
+   CopyBuffer(heiken_ashi_handle, MA_BUFFER, 1, 3, ma);
+   CopyBuffer(heiken_ashi_handle, UPDOWN_BUFFER, 1, 3, updown);
    CopyBuffer(heiken_ashi_handle, ATR_BUFFER, 1, 2, atr);
-   ArrayReverse(hao, 0, WHOLE_ARRAY);
    ArrayReverse(hac, 0, WHOLE_ARRAY);
    ArrayReverse(ma, 0, WHOLE_ARRAY);
    ArrayReverse(updown, 0, WHOLE_ARRAY);
    ArrayReverse(atr, 0, WHOLE_ARRAY);
    
-   if(updown[0]<updown[1] && hac[0]>ma[0]){  // buy
+   if((updown[0]<updown[1] || updown[0]<updown[2])  && 
+      (hac[0]>ma[0] || hac[0]>ma[1] || hac[0]>ma[2])){  // buy
       entry_price = SymbolInfoDouble(_Symbol,SYMBOL_ASK);
-      //entry_price = hao[0];
       sl = NormalizeDouble(atr[0], _Digits);
       tp1 = NormalizeDouble(entry_price + (entry_price-sl)*rr_factor/2, _Digits);
       tp2 = NormalizeDouble(entry_price + (entry_price-sl)*rr_factor, _Digits);
       double lot = calculate_lot_size((entry_price-sl)/_Point, risk_per_trade);
       trade.Buy(lot/2, _Symbol, entry_price, sl, tp1);
       trade.Buy(lot/2, _Symbol, entry_price, sl, tp2);
-   }else if(updown[0]>updown[1] && hac[0]<ma[0]){  // sell
+   }else if((updown[0]>updown[1] || updown[0]>updown[2])  && 
+      (hac[0]<ma[0] || hac[0]<ma[1] || hac[0]<ma[2])){  // sell
       entry_price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
-      //entry_price = hao[0];
       sl = NormalizeDouble(atr[0], _Digits);
       tp1 = NormalizeDouble(entry_price - (sl-entry_price)*rr_factor/2, _Digits);
       tp2 = NormalizeDouble(entry_price - (sl-entry_price)*rr_factor, _Digits);
