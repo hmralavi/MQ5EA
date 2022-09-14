@@ -2,15 +2,15 @@
 
 input int market_open_hour = 9;
 input int market_open_minute = 0;
-input int market_close_hour = 11;
+input int market_close_hour = 10;
 input int market_close_minute = 0;
 input bool trade_double_side_break = false;
-input double break_offset_points = 10;
-input double risk = 10;  // risk %
-input int nOrders =10;
-input int Rr = 2;
+input double sl_offset_points = 50;
+input double risk = 5;  // risk %
+input int nOrders = 2;
+input int Rr = 3;
 input bool riskfree = false;
-input int market_terminate_hour = 21;
+input int market_terminate_hour = 23;
 input int market_terminate_minute = 0;
 
 int Magic = 140;
@@ -61,11 +61,11 @@ void OnTick()
    GetMyOrdersTickets(Magic, ord_tickets);
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;
    
-   if((iClose(_Symbol,_Period,1) > MH.high + break_offset_points*_Point)){
+   if((iClose(_Symbol,_Period,1) > MH.high)){
       double p1 = ML.low;
       double p2 = MH.high;
       double meanp = (p1 + p2)/2;
-      double sl = p1 - break_offset_points*_Point;
+      double sl = p1 - sl_offset_points*_Point;
       double tp = p2 + Rr * (p2-p1);
       double lot = calculate_lot_size((meanp-sl)/_Point, risk);
       double p;
@@ -74,14 +74,12 @@ void OnTick()
          p = i*(p2-p1)/(nOrders-1) + p1;
          p = NormalizeDouble(p, _Digits);
          trade.BuyLimit(lot_, p, _Symbol, sl, tp);
-      }
-      return;
-      
-   }else if((iClose(_Symbol,_Period,1) < ML.low - break_offset_points*_Point)){
+      }      
+   }else if((iClose(_Symbol,_Period,1) < ML.low)){
       double p1 = MH.high;
       double p2 = ML.low;
       double meanp = (p1 + p2)/2;
-      double sl = p1 + break_offset_points*_Point;
+      double sl = p1 + sl_offset_points*_Point;
       double tp = p2 - Rr * (p1-p2);
       double lot = calculate_lot_size((sl-meanp)/_Point, risk);
       double p;
@@ -90,12 +88,8 @@ void OnTick()
          p = i*(p2-p1)/(nOrders-1) + p1;
          p = NormalizeDouble(p, _Digits);
          trade.SellLimit(lot_, p, _Symbol, sl, tp);
-      }
-      return;
+      }      
    }
-   
-   
-
 }
 
 void calculate_market_low_high(){
