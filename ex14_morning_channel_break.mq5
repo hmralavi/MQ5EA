@@ -109,7 +109,7 @@ void calculate_market_low_high(){
 }
 
 double calculate_lot_size(double slpoints, double risk){
-   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double balance = MathMin(1000,AccountInfoDouble(ACCOUNT_BALANCE));
    double riskusd = risk * balance / 100;
    double lot = riskusd/slpoints;
    lot = NormalizeDouble((MathFloor(lot*100/2)*2)/100,2);
