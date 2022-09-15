@@ -18,7 +18,7 @@ input bool use_chart_timeframe = true;
 input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M15;
 input int market_open_hour = 9;
 input int market_open_minute = 0;
-input int market_duration_bars = 6;
+input int market_duration_minutes = 60;
 input int market_terminate_hour = 23;
 input int market_terminate_minute = 0;
 input double sl_offset_points = 50;  // sl offset points channel edge
@@ -35,7 +35,7 @@ MqlRates ML, MH; // market low, high
 bool market_lh_calculated = false;
 
 #define MO StringToTime(_MO)  // market open time
-#define MC MO + PeriodSeconds(tf)*market_duration_bars  // market close time
+#define MC MO + market_duration_minutes*60  // market close time
 #define MT StringToTime(_MT)  // market terminate time
 
 int OnInit()
