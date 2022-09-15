@@ -72,7 +72,7 @@ void OnTick()
    GetMyOrdersTickets(Magic, ord_tickets);
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;   
    
-   if((iClose(_Symbol,_Period,1) > MH.high && iOpen(_Symbol,_Period,1) < MH.high)){
+   if((iClose(_Symbol,_Period,1) > MH.high && iOpen(_Symbol,_Period,1) <= MH.high)){
       double p1_ = ML.low + broker_spread_points*_Point;
       double p2_ = MH.high + broker_spread_points*_Point;
       double p1 = second_order_price_ratio * (p1_-p2_) + p2_;
@@ -87,7 +87,7 @@ void OnTick()
       trade.BuyLimit(lot_, p2, _Symbol, sl,tp,ORDER_TIME_GTC,0,"B21;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(tp,_Digits));
       trade.BuyLimit(lot_, p2, _Symbol, sl,0,ORDER_TIME_GTC,0,"B22;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(0,_Digits));
 
-   }else if((iClose(_Symbol,_Period,1) < ML.low && iOpen(_Symbol,_Period,1) > ML.low)){
+   }else if((iClose(_Symbol,_Period,1) < ML.low && iOpen(_Symbol,_Period,1) >= ML.low)){
       double p1_ = MH.high + broker_spread_points*_Point;
       double p2_ = ML.low + broker_spread_points*_Point;
       double p1 = second_order_price_ratio * (p1_-p2_) + p2_;
@@ -122,7 +122,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
             if(iClose(_Symbol,_Period,0)>=MH.high) sl=MH.high;
             if(iClose(_Symbol,_Period,0)<=ML.low) sl=ML.low;
             for(int i=0;i<npos;i++){              
-               trade.PositionModify(pos_tickets[0], sl, 0); 
+               trade.PositionModify(pos_tickets[i], sl, 0); 
             }           
          }
       }
