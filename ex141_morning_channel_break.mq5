@@ -14,6 +14,8 @@ TODO:
 
 #include <../Experts/mq5ea/mytools.mqh>
 
+input bool use_chart_timeframe = true;
+input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M15;
 input int market_open_hour = 9;
 input int market_open_minute = 0;
 input int market_duration_bars = 6;
@@ -28,11 +30,12 @@ input double second_order_price_ratio = 0.5;  // between 0-1. 0 close to first o
 int Magic = 141;
 CTrade trade;
 string _MO,_MT;
+ENUM_TIMEFRAMES tf;
 MqlRates ML, MH; // market low, high
 bool market_lh_calculated = false;
 
 #define MO StringToTime(_MO)  // market open time
-#define MC MO + PeriodSeconds(_Period)*market_duration_bars  // market close time
+#define MC MO + PeriodSeconds(tf)*market_duration_bars  // market close time
 #define MT StringToTime(_MT)  // market terminate time
 
 int OnInit()
@@ -40,14 +43,19 @@ int OnInit()
    trade.SetExpertMagicNumber(Magic);
    _MO = IntegerToString(market_open_hour,2,'0')+":"+IntegerToString(market_open_minute,2,'0');
    _MT = IntegerToString(market_terminate_hour,2,'0')+":"+IntegerToString(market_terminate_minute,2,'0');
-   Print(PERIOD_M15);
+   if(use_chart_timeframe) tf = _Period;
+   else tf = costume_timeframe;
+   ObjectsDeleteAll(0);
    return(INIT_SUCCEEDED);
 }
 
+void OnDeinit(const int reason){
+   ObjectsDeleteAll(0);
+}
 
 void OnTick()
 {
-   if(!IsNewCandle(_Period)) return;
+   if(!IsNewCandle(tf)) return;
    
    if(TimeCurrent() >= MT){
       CloseAllPositions(trade);
@@ -72,7 +80,7 @@ void OnTick()
    GetMyOrdersTickets(Magic, ord_tickets);
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;   
    
-   if((iClose(_Symbol,_Period,1) > MH.high && iOpen(_Symbol,_Period,1) <= MH.high)){
+   if((iClose(_Symbol,tf,1) > MH.high && iOpen(_Symbol,tf,1) <= MH.high)){
       double p1_ = ML.low + broker_spread_points*_Point;
       double p2_ = MH.high + broker_spread_points*_Point;
       double p1 = second_order_price_ratio * (p1_-p2_) + p2_;
@@ -87,7 +95,7 @@ void OnTick()
       trade.BuyLimit(lot_, p2, _Symbol, sl,tp,ORDER_TIME_GTC,0,"B21;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(tp,_Digits));
       trade.BuyLimit(lot_, p2, _Symbol, sl,0,ORDER_TIME_GTC,0,"B22;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(0,_Digits));
 
-   }else if((iClose(_Symbol,_Period,1) < ML.low && iOpen(_Symbol,_Period,1) >= ML.low)){
+   }else if((iClose(_Symbol,tf,1) < ML.low && iOpen(_Symbol,tf,1) >= ML.low)){
       double p1_ = MH.high + broker_spread_points*_Point;
       double p2_ = ML.low + broker_spread_points*_Point;
       double p1 = second_order_price_ratio * (p1_-p2_) + p2_;
@@ -119,8 +127,8 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
             GetMyPositionsTickets(Magic, pos_tickets);
             int npos = ArraySize(pos_tickets);
             double sl;
-            if(iClose(_Symbol,_Period,0)>=MH.high) sl=MH.high;
-            if(iClose(_Symbol,_Period,0)<=ML.low) sl=ML.low;
+            if(iClose(_Symbol,tf,0)>=MH.high) sl=MH.high;
+            if(iClose(_Symbol,tf,0)<=ML.low) sl=ML.low;
             for(int i=0;i<npos;i++){              
                trade.PositionModify(pos_tickets[i], sl, 0); 
             }           
@@ -132,9 +140,9 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
 void calculate_market_low_high(){
    MqlRates mrate[];
    ArraySetAsSeries(mrate, true);
-   int st = iBarShift(_Symbol, _Period, MC);
-   int en = iBarShift(_Symbol, _Period, MO);
-   CopyRates(_Symbol,_Period,st,en-st+1,mrate);
+   int st = iBarShift(_Symbol, tf, MC);
+   int en = iBarShift(_Symbol, tf, MO);
+   CopyRates(_Symbol,tf,st,en-st+1,mrate);
    MqlRates ml = mrate[0];
    MqlRates mh = mrate[0];
    for(int i=0;i<en-st+1;i++){

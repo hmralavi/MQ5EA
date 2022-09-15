@@ -30,9 +30,13 @@ int OnInit()
    _MO = IntegerToString(market_open_hour,2,'0')+":"+IntegerToString(market_open_minute,2,'0');
    _MC = IntegerToString(market_close_hour,2,'0')+":"+IntegerToString(market_close_minute,2,'0');
    _MT = IntegerToString(market_terminate_hour,2,'0')+":"+IntegerToString(market_terminate_minute,2,'0');
+   ObjectsDeleteAll(0);
    return(INIT_SUCCEEDED);
 }
 
+void OnDeinit(const int reason){
+   ObjectsDeleteAll(0);
+}
 
 void OnTick()
 {
