@@ -100,7 +100,7 @@ void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double t
    trade.PositionModify(pos_ticket, new_sl, current_tp);
 }
 
-void DetectPeaks(PeakProperties& peaks[], ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
+void DetectPeaks(PeakProperties& peaks[], ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak, bool weighted_peaks=true){
    MqlRates mrate[];
    ArraySetAsSeries(mrate, true);
    if(CopyRates(_Symbol,timeframe,start,count,mrate)<0){
@@ -108,10 +108,10 @@ void DetectPeaks(PeakProperties& peaks[], ENUM_TIMEFRAMES timeframe,int start, i
       ResetLastError();
       return;
    }
-   DetectPeaksCoreFunc(peaks, mrate, ncandles_peak, 0, -1);
+   DetectPeaksCoreFunc(peaks, mrate, ncandles_peak, 0, -1, weighted_peaks);
 }
 
-void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandles_peak, int start_candle=0, int end_candle=-1){
+void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandles_peak, int start_candle=0, int end_candle=-1, bool weighted_peaks=true){
    if(end_candle==-1) end_candle=ArraySize(mrate);
    int npeaks = 0;
    bool _istop;
@@ -121,8 +121,9 @@ void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandle
       _isbottom = true;
       for(int i=-ncandles_peak; i<=ncandles_peak; i++){
          if(i==0) continue;
-         _istop = _istop && (mrate[icandle].high >= mrate[icandle+i].high+2.0*MathSqrt(MathAbs(i))*_Point);// && (mrate[icandle].low>=mrate[icandle+i].low-1.0*MathSqrt(MathAbs(i))*_Point);
-         _isbottom = _isbottom && (mrate[icandle].low <= mrate[icandle+i].low-2.0*MathSqrt(MathAbs(i))*_Point);// && (mrate[icandle].high<=mrate[icandle+i].high+1.0*MathSqrt(MathAbs(i))*_Point);
+         double w = weighted_peaks?2.0*MathSqrt(MathAbs(i))*_Point:0;
+         _istop = _istop && (mrate[icandle].high >= mrate[icandle+i].high+w);// && (mrate[icandle].low>=mrate[icandle+i].low-1.0*MathSqrt(MathAbs(i))*_Point);
+         _isbottom = _isbottom && (mrate[icandle].low <= mrate[icandle+i].low-w);// && (mrate[icandle].high<=mrate[icandle+i].high+1.0*MathSqrt(MathAbs(i))*_Point);
          if(!_istop && !_isbottom) break;
       }
       if(!_istop && !_isbottom) continue;
@@ -156,43 +157,37 @@ void PlotPeaks(PeakProperties& peaks[], int width=1){
       string objname = peaks[i].isTop?"peak"+IntegerToString(i,3,'0')+"_top":"peak"+IntegerToString(i,3,'0')+"_bottom";
       ENUM_OBJECT objtype = peaks[i].isTop?OBJ_ARROW_DOWN:OBJ_ARROW_UP;
       color objclr = peaks[i].isTop?clrBlack:clrBlue;
-      double value = peaks[i].isTop?peaks[i].main_candle.high:peaks[i].main_candle.low;
+      double value = peaks[i].isTop?peaks[i].main_candle.high+60*_Point:peaks[i].main_candle.low-10*_Point;
       ObjectCreate(0, objname, objtype, 0, peaks[i].main_candle.time, value);
       ObjectSetInteger(0, objname, OBJPROP_COLOR, objclr);
       ObjectSetInteger(0, objname, OBJPROP_WIDTH, width);
    }
 }
 
-ENUM_MARKET_TREND_TYPE DetectPeaksTrend(ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak){
+ENUM_MARKET_TREND_TYPE DetectPeaksTrend(ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak, bool weighted_peaks=true){
    PeakProperties peaks[];
-   DetectPeaks(peaks, timeframe, start, count, ncandles_peak);
-   //PlotPeaks(peaks, 1);
+   DetectPeaks(peaks, timeframe, start, count, ncandles_peak, weighted_peaks);
    
-   double tops[];
-   double bottoms[];
-   int ntops = 0;
-   int nbottoms = 0;
    int npeaks = ArraySize(peaks);
-   
-   for(int i=0; i<npeaks; i++){
-      if(peaks[i].isTop){
-         ntops++;
-         ArrayResize(tops, ntops);
-         tops[ntops-1] = peaks[i].main_candle.high;
-      }else{
-         nbottoms++;
-         ArrayResize(bottoms, nbottoms);
-         bottoms[nbottoms-1] = peaks[i].main_candle.low;   
-      }
-   }
-   
-   if(ntops<2 || nbottoms<2){
-      return MARKET_TREND_NEUTRAL;
-   }
+   if(npeaks<4) return MARKET_TREND_NEUTRAL;
+   if(!(peaks[0].isTop && !peaks[1].isTop && peaks[2].isTop && !peaks[3].isTop) && 
+      !(!peaks[0].isTop && peaks[1].isTop && !peaks[2].isTop && peaks[3].isTop)) return MARKET_TREND_NEUTRAL;
    
    double bid_price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
-   if(tops[0]>tops[1] && bottoms[0]>bottoms[1] && bid_price>bottoms[0]) return MARKET_TREND_BULLISH;
-   if(tops[0]<tops[1] && bottoms[0]<bottoms[1] && bid_price<tops[0]) return MARKET_TREND_BEARISH;
+   double h1,h2,l1,l2;
+   if(peaks[0].isTop){
+      h1 = peaks[0].main_candle.high;
+      h2 = peaks[2].main_candle.high;
+      l1 = peaks[1].main_candle.low;
+      l2 = peaks[3].main_candle.low;
+   }else{
+      h1 = peaks[1].main_candle.high;
+      h2 = peaks[3].main_candle.high;
+      l1 = peaks[0].main_candle.low;
+      l2 = peaks[2].main_candle.low;
+   }
+   if(h1>h2 && l1>l2 && h2>l1 && bid_price>l1) return MARKET_TREND_BULLISH;
+   if(h1<h2 && l1<l2 && h1>l2 && bid_price<h1) return MARKET_TREND_BEARISH;
    return MARKET_TREND_NEUTRAL;
 }
 

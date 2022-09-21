@@ -23,9 +23,11 @@ input int market_terminate_hour = 23;
 input int market_terminate_minute = 0;
 input double sl_offset_points = 50;  // sl offset points channel edge
 input double risk = 5;  // risk %
-input double Rr = 2;  // reward/risk ratio
+input double Rr = 3;  // reward/risk ratio
 input double broker_spread_points = 13;
-input double second_order_price_ratio = 0.5;  // between 0-1. 0 close to first order. 1 on the other side of the channel.
+input bool instant_entry = false;
+input double second_order_price_ratio = 0.5;  // second order price ratio. 0 close to first order. 1 on the other side of the channel.
+input bool close_only_half_size_on_tp = false;
 
 int Magic = 141;
 CTrade trade;
@@ -54,16 +56,14 @@ void OnDeinit(const int reason){
 }
 
 void OnTick()
-{
-   if(!IsNewCandle(tf)) return;
-   
+{   
    if(TimeCurrent() >= MT){
       CloseAllPositions(trade);
       DeleteAllOrders(trade);
       return;
       
    }
-   if(TimeCurrent()<=MC){
+   if(TimeCurrent()<MC){
       market_lh_calculated = false;
       return;
    }
@@ -72,43 +72,61 @@ void OnTick()
       calculate_market_low_high();
       market_lh_calculated = true;
       ObjectsDeleteAll(0);
-      ObjectCreate(0, "marketlh", OBJ_RECTANGLE, 0, MC, MH.high, MO, ML.low);     
+      ObjectCreate(0, "marketlh", OBJ_RECTANGLE, 0, MC-PeriodSeconds(tf), MH.high, MO, ML.low);    
+      ObjectSetInteger(0, "marketlh", OBJPROP_STYLE, STYLE_DOT); 
    }
+   
+   if(!IsNewCandle(tf)) return;
    
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;   
    
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   
    if((iClose(_Symbol,tf,1) > MH.high && iOpen(_Symbol,tf,1) <= MH.high)){
       double p1_ = ML.low + broker_spread_points*_Point;
       double p2_ = MH.high + broker_spread_points*_Point;
       double p1 = second_order_price_ratio * (p1_-p2_) + p2_;
-      double p2 = p2_;
+      double p2 = instant_entry?ask:p2_;
       double meanp = (p1 + p2)/2;
       double sl = p1_ - sl_offset_points*_Point;
       double tp = p2_ + Rr * (p2_-p1_);
       double lot = calculate_lot_size((meanp-sl)/_Point, risk);
       double lot_ = NormalizeDouble(lot/4, 2);
-      trade.BuyLimit(lot_, p1, _Symbol, sl,tp,ORDER_TIME_GTC,0,"B11;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(tp,_Digits));
-      trade.BuyLimit(lot_, p1, _Symbol, sl,0,ORDER_TIME_GTC,0,"B12;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(0,_Digits));
-      trade.BuyLimit(lot_, p2, _Symbol, sl,tp,ORDER_TIME_GTC,0,"B21;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(tp,_Digits));
-      trade.BuyLimit(lot_, p2, _Symbol, sl,0,ORDER_TIME_GTC,0,"B22;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(0,_Digits));
+      double tp2 = close_only_half_size_on_tp?0:tp;
+      if(instant_entry){
+         trade.Buy(lot_, _Symbol, p2, sl, tp);
+         trade.Buy(lot_, _Symbol, p2, sl, tp2);
+      }else{
+         trade.BuyLimit(lot_, p2, _Symbol, sl,tp);
+         trade.BuyLimit(lot_, p2, _Symbol, sl,tp2);
+      }
+      trade.BuyLimit(lot_, p1, _Symbol, sl,tp);
+      trade.BuyLimit(lot_, p1, _Symbol, sl,tp2);
 
    }else if((iClose(_Symbol,tf,1) < ML.low && iOpen(_Symbol,tf,1) >= ML.low)){
       double p1_ = MH.high + broker_spread_points*_Point;
       double p2_ = ML.low + broker_spread_points*_Point;
       double p1 = second_order_price_ratio * (p1_-p2_) + p2_;
-      double p2 = p2_;
+      double p2 = instant_entry?bid:p2_;
       double meanp = (p1 + p2)/2;
       double sl = p1_ + sl_offset_points*_Point;
       double tp = p2_ - Rr * (p1_-p2_);
       double lot = calculate_lot_size((sl-meanp)/_Point, risk);
       double lot_ = NormalizeDouble(lot/4, 2);
-      trade.SellLimit(lot_, p1, _Symbol, sl,tp,ORDER_TIME_GTC,0,"B11;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(tp,_Digits));
-      trade.SellLimit(lot_, p1, _Symbol, sl,0,ORDER_TIME_GTC,0,"B12;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(0,_Digits));
-      trade.SellLimit(lot_, p2, _Symbol, sl,tp,ORDER_TIME_GTC,0,"B21;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(tp,_Digits));
-      trade.SellLimit(lot_, p2, _Symbol, sl,0,ORDER_TIME_GTC,0,"B22;" + DoubleToString(sl,_Digits) + ";" + DoubleToString(0,_Digits));
+      double tp2 = close_only_half_size_on_tp?0:tp;
+      if(instant_entry){
+         trade.Sell(lot_, _Symbol, p2, sl, tp);
+         trade.Sell(lot_, _Symbol, p2, sl, tp2);
+      }else{
+         trade.SellLimit(lot_, p2, _Symbol, sl,tp);
+         trade.SellLimit(lot_, p2, _Symbol, sl,tp2);
+      }
+      trade.SellLimit(lot_, p1, _Symbol, sl,tp);
+      trade.SellLimit(lot_, p1, _Symbol, sl,tp2);
    }
 }
 
@@ -140,7 +158,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
 void calculate_market_low_high(){
    MqlRates mrate[];
    ArraySetAsSeries(mrate, true);
-   int st = iBarShift(_Symbol, tf, MC);
+   int st = iBarShift(_Symbol, tf, MC)+1;
    int en = iBarShift(_Symbol, tf, MO);
    CopyRates(_Symbol,tf,st,en-st+1,mrate);
    MqlRates ml = mrate[0];
