@@ -33,7 +33,6 @@ CTrade trade;
 int heiken_ashi_handle, heiken_ashi_handle1, heiken_ashi_handle2;
 double hac[], ma[], updown[], atr[];
 double updown1[], updown2[];
-double sl, tp1, tp2, entry_price;
 
 #define HAC_BUFFER 3
 #define MA_BUFFER 5
@@ -63,7 +62,10 @@ void OnTick(){
    if(ArraySize(pos_tickets)>0){
       if(atr_stoploss_trailing){
          CopyBuffer(heiken_ashi_handle, ATR_BUFFER, 0, 1, atr);  
-         TrailingStoploss(trade, pos_tickets[0], MathAbs(atr[0]-SymbolInfoDouble(_Symbol,SYMBOL_BID))/_Point, MathAbs((sl-entry_price)/_Point));
+         PositionSelectByTicket(pos_tickets[0]);
+         double org_sl = StringToDouble(PositionGetString(POSITION_COMMENT));
+         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+         TrailingStoploss(trade, pos_tickets[0], MathAbs(atr[0]-SymbolInfoDouble(_Symbol,SYMBOL_BID))/_Point, MathAbs((org_sl-open_price)/_Point));
       }
       return;
    }
@@ -83,6 +85,7 @@ void OnTick(){
    ArrayReverse(updown1, 0, WHOLE_ARRAY);
    ArrayReverse(updown2, 0, WHOLE_ARRAY);
    
+   double sl, tp1, tp2, entry_price;
    if((updown[0]<updown[1] || updown[0]<updown[2])  && 
       (hac[0]>ma[0] || hac[0]>ma[1] || hac[0]>ma[2])){  // buy
       if(use_higher_timeframe_trend1){
@@ -97,10 +100,10 @@ void OnTick(){
       tp2 = NormalizeDouble(entry_price + (entry_price-sl)*rr_factor, _Digits);
       double lot = calculate_lot_size((entry_price-sl)/_Point, risk_per_trade);
       if(atr_stoploss_trailing){
-         trade.Buy(lot, _Symbol, entry_price, sl);
+         trade.Buy(lot, _Symbol, entry_price, sl, DoubleToString(sl, _Digits));
       }else{
-         trade.Buy(lot/2, _Symbol, entry_price, sl, tp1);
-         trade.Buy(lot/2, _Symbol, entry_price, sl, tp2);
+         trade.Buy(lot/2, _Symbol, entry_price, sl, tp1, DoubleToString(sl, _Digits));
+         trade.Buy(lot/2, _Symbol, entry_price, sl, tp2, DoubleToString(sl, _Digits));
       }
    }else if((updown[0]>updown[1] || updown[0]>updown[2])  && 
       (hac[0]<ma[0] || hac[0]<ma[1] || hac[0]<ma[2])){  // sell
@@ -116,10 +119,10 @@ void OnTick(){
       tp2 = NormalizeDouble(entry_price - (sl-entry_price)*rr_factor, _Digits);
       double lot = calculate_lot_size((sl-entry_price)/_Point, risk_per_trade);
       if(atr_stoploss_trailing){
-         trade.Sell(lot, _Symbol, entry_price, sl);
+         trade.Sell(lot, _Symbol, entry_price, sl, 0, DoubleToString(sl, _Digits));
       }else{
-         trade.Sell(lot/2, _Symbol, entry_price, sl, tp1);
-         trade.Sell(lot/2, _Symbol, entry_price, sl, tp2);
+         trade.Sell(lot/2, _Symbol, entry_price, sl, tp1, DoubleToString(sl, _Digits));
+         trade.Sell(lot/2, _Symbol, entry_price, sl, tp2, DoubleToString(sl, _Digits));
       }
    }
 }
@@ -137,7 +140,12 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
             if(deal.Profit()>=0){
                ulong pos_tickets[];
                GetMyPositionsTickets(Magic, pos_tickets);
-               if(ArraySize(pos_tickets)>0) trade.PositionModify(pos_tickets[0], entry_price, tp2);
+               if(ArraySize(pos_tickets)>0){
+                  PositionSelectByTicket(pos_tickets[0]);
+                  double current_tp = PositionGetDouble(POSITION_TP);
+                  double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+                  trade.PositionModify(pos_tickets[0], open_price, current_tp);
+               }
             }
          }
       }
