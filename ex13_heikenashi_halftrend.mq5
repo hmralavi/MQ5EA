@@ -129,10 +129,9 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
    }
 }
 
-double calculate_lot_size(double slpoints, double risk){
-   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
-   double riskusd = risk * balance / 100;
-   //double contract = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_CONTRACT_SIZE);
+double calculate_lot_size(double slpoints, double risk_percent){
+   double balance = MathMin(1000,AccountInfoDouble(ACCOUNT_BALANCE));
+   double riskusd = risk_percent * balance / 100;
    double lot = riskusd/slpoints;
    lot = NormalizeDouble((MathFloor(lot*100/2)*2)/100,2);
    return lot;
