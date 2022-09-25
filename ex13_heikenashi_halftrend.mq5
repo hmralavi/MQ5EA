@@ -100,7 +100,7 @@ void OnTick(){
       tp2 = NormalizeDouble(entry_price + (entry_price-sl)*rr_factor, _Digits);
       double lot = calculate_lot_size((entry_price-sl)/_Point, risk_per_trade);
       if(atr_stoploss_trailing){
-         trade.Buy(lot, _Symbol, entry_price, sl, DoubleToString(sl, _Digits));
+         trade.Buy(lot, _Symbol, entry_price, sl, tp2, DoubleToString(sl, _Digits));
       }else{
          trade.Buy(lot/2, _Symbol, entry_price, sl, tp1, DoubleToString(sl, _Digits));
          trade.Buy(lot/2, _Symbol, entry_price, sl, tp2, DoubleToString(sl, _Digits));
@@ -119,7 +119,7 @@ void OnTick(){
       tp2 = NormalizeDouble(entry_price - (sl-entry_price)*rr_factor, _Digits);
       double lot = calculate_lot_size((sl-entry_price)/_Point, risk_per_trade);
       if(atr_stoploss_trailing){
-         trade.Sell(lot, _Symbol, entry_price, sl, 0, DoubleToString(sl, _Digits));
+         trade.Sell(lot, _Symbol, entry_price, sl, tp2, DoubleToString(sl, _Digits));
       }else{
          trade.Sell(lot/2, _Symbol, entry_price, sl, tp1, DoubleToString(sl, _Digits));
          trade.Sell(lot/2, _Symbol, entry_price, sl, tp2, DoubleToString(sl, _Digits));
