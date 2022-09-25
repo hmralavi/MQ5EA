@@ -16,6 +16,7 @@ input double atr_channel_deviation = 2.0;
 input double risk_per_trade = 2;  // risk %
 input double rr_factor = 2;
 input bool atr_stoploss_trailing = true;
+input bool breakeven_if_in_loss = false;
 input int Magic = 130;  // EA's magic number
 input string __str2 = "";  // ---------TRADING SESSIONS SETTINGS---------
 input bool trade_only_in_session_time = false;
@@ -60,12 +61,18 @@ void OnTick(){
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
    if(ArraySize(pos_tickets)>0){
+      PositionSelectByTicket(pos_tickets[0]);
+      ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+      double org_sl = StringToDouble(PositionGetString(POSITION_COMMENT));
+      double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
+      double curr_price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
+      if(breakeven_if_in_loss){
+         if(pos_type==POSITION_TYPE_BUY && curr_price<(2*org_sl+open_price)/3) trade.PositionModify(pos_tickets[0], org_sl, open_price);
+         if(pos_type==POSITION_TYPE_SELL && curr_price>(2*org_sl+open_price)/3) trade.PositionModify(pos_tickets[0], org_sl, open_price);
+      }
       if(atr_stoploss_trailing){
          CopyBuffer(heiken_ashi_handle, ATR_BUFFER, 0, 1, atr);  
-         PositionSelectByTicket(pos_tickets[0]);
-         double org_sl = StringToDouble(PositionGetString(POSITION_COMMENT));
-         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-         TrailingStoploss(trade, pos_tickets[0], MathAbs(atr[0]-SymbolInfoDouble(_Symbol,SYMBOL_BID))/_Point, MathAbs((org_sl-open_price)/_Point));
+         TrailingStoploss(trade, pos_tickets[0], MathAbs(atr[0]-curr_price)/_Point, MathAbs((org_sl-open_price)/_Point));
       }
       return;
    }
