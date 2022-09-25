@@ -15,6 +15,7 @@ input int atr_period = 14;
 input double atr_channel_deviation = 2.0;
 input double risk_per_trade = 2;  // risk %
 input double rr_factor = 2;
+input bool atr_stoploss_trailing = true;
 input int Magic = 130;  // EA's magic number
 input string __str2 = "";  // ---------TRADING SESSIONS SETTINGS---------
 input bool trade_only_in_session_time = false;
@@ -55,13 +56,19 @@ void OnDeinit(const int reason){
 }
 
 void OnTick(){  
-   if(!IsNewCandle(main_time_frame)) return;
-   if(!is_session_time_allowed(session_start_time, session_end_time) && trade_only_in_session_time) return;   
    ulong pos_tickets[];
    ulong ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
-   if(ArraySize(pos_tickets)>0 || ArraySize(ord_tickets)>0) return;
+   if(ArraySize(pos_tickets)>0){
+      if(atr_stoploss_trailing){
+         CopyBuffer(heiken_ashi_handle, ATR_BUFFER, 0, 1, atr);  
+         TrailingStoploss(trade, pos_tickets[0], MathAbs(atr[0]-SymbolInfoDouble(_Symbol,SYMBOL_BID))/_Point, MathAbs((sl-entry_price)/_Point));
+      }
+      return;
+   }
+   if(!IsNewCandle(main_time_frame)) return;
+   if(!is_session_time_allowed(session_start_time, session_end_time) && trade_only_in_session_time) return;   
    CopyBuffer(heiken_ashi_handle, HAC_BUFFER, 1, 2, hac);
    CopyBuffer(heiken_ashi_handle, MA_BUFFER, 1, 3, ma);
    CopyBuffer(heiken_ashi_handle, UPDOWN_BUFFER, 1, 3, updown);
@@ -89,8 +96,12 @@ void OnTick(){
       tp1 = NormalizeDouble(entry_price + (entry_price-sl)*rr_factor/2, _Digits);
       tp2 = NormalizeDouble(entry_price + (entry_price-sl)*rr_factor, _Digits);
       double lot = calculate_lot_size((entry_price-sl)/_Point, risk_per_trade);
-      trade.Buy(lot/2, _Symbol, entry_price, sl, tp1);
-      trade.Buy(lot/2, _Symbol, entry_price, sl, tp2);
+      if(atr_stoploss_trailing){
+         trade.Buy(lot, _Symbol, entry_price, sl);
+      }else{
+         trade.Buy(lot/2, _Symbol, entry_price, sl, tp1);
+         trade.Buy(lot/2, _Symbol, entry_price, sl, tp2);
+      }
    }else if((updown[0]>updown[1] || updown[0]>updown[2])  && 
       (hac[0]<ma[0] || hac[0]<ma[1] || hac[0]<ma[2])){  // sell
       if(use_higher_timeframe_trend1){
@@ -104,8 +115,12 @@ void OnTick(){
       tp1 = NormalizeDouble(entry_price - (sl-entry_price)*rr_factor/2, _Digits);
       tp2 = NormalizeDouble(entry_price - (sl-entry_price)*rr_factor, _Digits);
       double lot = calculate_lot_size((sl-entry_price)/_Point, risk_per_trade);
-      trade.Sell(lot/2, _Symbol, entry_price, sl, tp1);
-      trade.Sell(lot/2, _Symbol, entry_price, sl, tp2);
+      if(atr_stoploss_trailing){
+         trade.Sell(lot, _Symbol, entry_price, sl);
+      }else{
+         trade.Sell(lot/2, _Symbol, entry_price, sl, tp1);
+         trade.Sell(lot/2, _Symbol, entry_price, sl, tp2);
+      }
    }
 }
 
