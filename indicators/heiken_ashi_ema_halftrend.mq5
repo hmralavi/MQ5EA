@@ -84,8 +84,10 @@ void OnInit()
    PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, 0.0);
    PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, 0.0);
    
-   ChartSetInteger(0, CHART_MODE, CHART_LINE);
-   ChartSetInteger(0, CHART_COLOR_CHART_LINE, ChartGetInteger(0, CHART_COLOR_BACKGROUND));
+   if(UseHeikenAshiCandles){
+      ChartSetInteger(0, CHART_MODE, CHART_LINE);
+      ChartSetInteger(0, CHART_COLOR_CHART_LINE, ChartGetInteger(0, CHART_COLOR_BACKGROUND));
+   }
 
    if(!ShowAtr){
       PlotIndexSetInteger(3,PLOT_LINE_COLOR,0,clrNONE); 

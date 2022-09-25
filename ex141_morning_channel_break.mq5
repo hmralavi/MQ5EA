@@ -63,7 +63,7 @@ void OnTick()
       return;
       
    }
-   if(TimeCurrent()<MC){
+   if(TimeCurrent() < MC){
       market_lh_calculated = false;
       return;
    }

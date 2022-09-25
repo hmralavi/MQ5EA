@@ -5,20 +5,33 @@ TODO:
 
 #include <../Experts/mq5ea/mytools.mqh>
 
+
+input string __str1 = "";  // ---------MAIN SETTINGS---------
+input ENUM_TIMEFRAMES main_time_frame = PERIOD_M1;
+input bool use_heiken_ashi_candles = true;
 input int ma_period = 200;
 input int amplitude = 3;
 input int atr_period = 14;
 input double atr_channel_deviation = 2.0;
 input double risk_per_trade = 2;  // risk %
 input double rr_factor = 2;
+input int Magic = 130;  // EA's magic number
+input string __str2 = "";  // ---------TRADING SESSIONS SETTINGS---------
 input bool trade_only_in_session_time = false;
 input string session_start_time = "09:00";      // session start (server time)
 input string session_end_time = "19:00";        // session end (server time)    
-input int Magic = 130;
+input string __str3 = "";  // ---------TREND TRADING SETTINGS---------
+input bool use_higher_timeframe_trend1 = false;
+input bool use_higher_timeframe_trend2 = false;
+input ENUM_TIMEFRAMES higher_timeframe1 = PERIOD_H1;
+input ENUM_TIMEFRAMES higher_timeframe2 = PERIOD_H4;
+input int timeframe1_amplitude = 1;
+input int timeframe2_amplitude = 1;
 
 CTrade trade;
-int heiken_ashi_handle;
+int heiken_ashi_handle, heiken_ashi_handle1, heiken_ashi_handle2;
 double hac[], ma[], updown[], atr[];
+double updown1[], updown2[];
 double sl, tp1, tp2, entry_price;
 
 #define HAC_BUFFER 3
@@ -28,17 +41,21 @@ double sl, tp1, tp2, entry_price;
 
 int OnInit(){  
    trade.SetExpertMagicNumber(Magic);
-   heiken_ashi_handle = iCustom(_Symbol, _Period, "..\\Experts\\mq5ea\\indicators\\heiken_ashi_ema_halftrend.ex5", true, MODE_EMA, ma_period, amplitude, atr_period, atr_channel_deviation);
+   heiken_ashi_handle = iCustom(_Symbol, main_time_frame, "..\\Experts\\mq5ea\\indicators\\heiken_ashi_ema_halftrend.ex5", use_heiken_ashi_candles, MODE_EMA, ma_period, amplitude, atr_period, atr_channel_deviation);
+   heiken_ashi_handle1 = iCustom(_Symbol, higher_timeframe1, "..\\Experts\\mq5ea\\indicators\\heiken_ashi_ema_halftrend.ex5", use_heiken_ashi_candles, MODE_EMA, ma_period, timeframe1_amplitude, atr_period, atr_channel_deviation);
+   heiken_ashi_handle2 = iCustom(_Symbol, higher_timeframe2, "..\\Experts\\mq5ea\\indicators\\heiken_ashi_ema_halftrend.ex5", use_heiken_ashi_candles, MODE_EMA, ma_period, timeframe2_amplitude, atr_period, atr_channel_deviation);
    ObjectsDeleteAll(0);
    return(INIT_SUCCEEDED);
 }
 
 void OnDeinit(const int reason){
    IndicatorRelease(heiken_ashi_handle);
+   IndicatorRelease(heiken_ashi_handle1);
+   IndicatorRelease(heiken_ashi_handle2);
 }
 
 void OnTick(){  
-   if(!IsNewCandle(_Period)) return;
+   if(!IsNewCandle(main_time_frame)) return;
    if(!is_session_time_allowed(session_start_time, session_end_time) && trade_only_in_session_time) return;   
    ulong pos_tickets[];
    ulong ord_tickets[];
@@ -54,8 +71,19 @@ void OnTick(){
    ArrayReverse(updown, 0, WHOLE_ARRAY);
    ArrayReverse(atr, 0, WHOLE_ARRAY);
    
+   CopyBuffer(heiken_ashi_handle1, UPDOWN_BUFFER, 0, 2, updown1);
+   CopyBuffer(heiken_ashi_handle2, UPDOWN_BUFFER, 0, 2, updown2);
+   ArrayReverse(updown1, 0, WHOLE_ARRAY);
+   ArrayReverse(updown2, 0, WHOLE_ARRAY);
+   
    if((updown[0]<updown[1] || updown[0]<updown[2])  && 
       (hac[0]>ma[0] || hac[0]>ma[1] || hac[0]>ma[2])){  // buy
+      if(use_higher_timeframe_trend1){
+         if(updown1[0]!=0.0 || updown1[1]!=0.0) return;
+      }
+      if(use_higher_timeframe_trend2){
+         if(updown2[0]!=0.0 || updown2[1]!=0.0) return;
+      }
       entry_price = SymbolInfoDouble(_Symbol,SYMBOL_ASK);
       sl = NormalizeDouble(atr[0], _Digits);
       tp1 = NormalizeDouble(entry_price + (entry_price-sl)*rr_factor/2, _Digits);
@@ -65,6 +93,12 @@ void OnTick(){
       trade.Buy(lot/2, _Symbol, entry_price, sl, tp2);
    }else if((updown[0]>updown[1] || updown[0]>updown[2])  && 
       (hac[0]<ma[0] || hac[0]<ma[1] || hac[0]<ma[2])){  // sell
+      if(use_higher_timeframe_trend1){
+         if(updown1[0]!=1.0 || updown1[1]!=1.0) return;
+      }
+      if(use_higher_timeframe_trend2){
+         if(updown2[0]!=1.0 || updown2[1]!=1.0) return;
+      }      
       entry_price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
       sl = NormalizeDouble(atr[0], _Digits);
       tp1 = NormalizeDouble(entry_price - (sl-entry_price)*rr_factor/2, _Digits);
