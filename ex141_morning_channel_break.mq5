@@ -2,14 +2,15 @@
 ex14_morning_channel_break EA
 
 TODO:
-   1- dont place the limit orders exactly on channel edges. consider broker spread.
-   2- set nOrders constant and equal to 2.
-   3- each limit order should be devided to two orders with half lot size. one order with tp and one without tp. both should have sl.
+   1- dont place the limit orders exactly on channel edges. consider broker spread. ==> DONE
+   2- set nOrders constant and equal to 2. ==> DONE
+   3- each limit order should be devided to two orders with half lot size. one order with tp and one without tp. both should have sl.  ==> DONE
    4- sl must be placed on the last swing below or above the channel.  !!!!! this needs to be done in the future!!!!!!!!!
-   6- when tp or sl triggers, delete all pending orders and move current positions sl to the channel edge (consider spread).
-   7- if stoploss happens, delete all pending orders.
-   8- place one order on the edge. place the other order with a ratio between two edges of the channel. useful for fibunacci  levels entry.
-   9- market close time input as number of bars starting from market open
+   6- when tp or sl triggers, delete all pending orders and move current positions sl to the channel edge (consider spread).  ==> DONE
+   7- if stoploss happens, delete all pending orders.  ==> DONE
+   8- place one order on the edge. place the other order with a ratio between two edges of the channel. useful for fibunacci  levels entry.  ==> DONE
+   9- market close time input as number of bars starting from market open  ==> DONE
+   10- add stoploss trailing using atr.
 */
 
 #include <../Experts/mq5ea/mytools.mqh>
@@ -28,8 +29,8 @@ input double broker_spread_points = 13;
 input bool instant_entry = false;
 input double second_order_price_ratio = 0.5;  // second order price ratio. 0 close to first order. 1 on the other side of the channel.
 input bool close_only_half_size_on_tp = false;
+input int Magic = 141;  // EA's magic number
 
-int Magic = 141;
 CTrade trade;
 string _MO,_MT;
 ENUM_TIMEFRAMES tf;

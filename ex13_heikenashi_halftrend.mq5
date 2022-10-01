@@ -45,6 +45,7 @@ int OnInit(){
    heiken_ashi_handle = iCustom(_Symbol, main_time_frame, "..\\Experts\\mq5ea\\indicators\\heiken_ashi_ema_halftrend.ex5", use_heiken_ashi_candles, MODE_EMA, ma_period, amplitude, atr_period, atr_channel_deviation);
    heiken_ashi_handle1 = iCustom(_Symbol, higher_timeframe1, "..\\Experts\\mq5ea\\indicators\\heiken_ashi_ema_halftrend.ex5", use_heiken_ashi_candles, MODE_EMA, ma_period, timeframe1_amplitude, atr_period, atr_channel_deviation);
    heiken_ashi_handle2 = iCustom(_Symbol, higher_timeframe2, "..\\Experts\\mq5ea\\indicators\\heiken_ashi_ema_halftrend.ex5", use_heiken_ashi_candles, MODE_EMA, ma_period, timeframe2_amplitude, atr_period, atr_channel_deviation);
+   ChartIndicatorAdd(0, 0, heiken_ashi_handle);   
    ObjectsDeleteAll(0);
    return(INIT_SUCCEEDED);
 }
