@@ -67,7 +67,7 @@ void OnDeinit(const int reason){
 
 void OnTick()
 {   
-   if(TimeCurrent() >= MT){
+   if(TimeCurrent() >= MT || TimeCurrent()<MO){
       CloseAllPositions(trade);
       DeleteAllOrders(trade);
       return;
@@ -79,12 +79,13 @@ void OnTick()
    }
 
    if(!market_lh_calculated){
-      calculate_market_low_high();
-      market_lh_calculated = true;
+      market_lh_calculated = calculate_market_low_high();
       ObjectsDeleteAll(0);
       ObjectCreate(0, "marketlh", OBJ_RECTANGLE, 0, MC-PeriodSeconds(tf), MH.high, MO, ML.low);    
       ObjectSetInteger(0, "marketlh", OBJPROP_STYLE, STYLE_DOT); 
    }
+   
+   if(!market_lh_calculated) return;
    
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
@@ -98,7 +99,7 @@ void OnTick()
          double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
          double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
          double atr[1];
-         CopyBuffer(atr_handle, pos_type==POSITION_TYPE_BUY?1:0, 0, 1, atr);  
+         CopyBuffer(atr_handle, pos_type==POSITION_TYPE_BUY?1:0, 0, 1, atr);  // buffer 0 atrhigh, buffer 1 atrlow
          TrailingStoploss(trade, pos_tickets[ipos], MathAbs(atr[0]-curr_price)/_Point, MathAbs((org_sl-open_price)/_Point));         
       }
    }
@@ -178,7 +179,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
    }   
 }
 
-void calculate_market_low_high(){
+bool calculate_market_low_high(){
    MqlRates mrate[];
    ArraySetAsSeries(mrate, true);
    int st = iBarShift(_Symbol, tf, MC)+1;
@@ -192,6 +193,7 @@ void calculate_market_low_high(){
    }
    ML = ml;
    MH = mh;
+   return true;
 }
 
 double calculate_lot_size(double slpoints, double risk_percent){
