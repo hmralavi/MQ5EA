@@ -25,6 +25,7 @@ input int market_terminate_hour = 21;
 input int market_terminate_minute = 0;
 input double sl_offset_points = 50;  // sl offset points channel edge
 input double risk = 2;  // risk %
+input double daily_loss_limit = -100;  // daily loss limit ($)
 input double Rr = 3;  // reward/risk ratio
 input bool instant_entry = false;
 input double second_order_price_ratio = 0.5;  // second order price ratio. 0 close to first order. 1 on the other side of the channel.
@@ -40,6 +41,7 @@ ENUM_TIMEFRAMES tf;
 MqlRates ML, MH; // market low, high
 bool market_lh_calculated = false;
 int atr_handle;
+double day_profit;
 
 #define MO StringToTime(_MO)  // market open time
 #define MC MO + market_duration_minutes*60  // market close time
@@ -66,7 +68,7 @@ void OnDeinit(const int reason){
 }
 
 void OnTick()
-{   
+{      
    if(TimeCurrent() >= MT || TimeCurrent()<MO){
       CloseAllPositions(trade);
       DeleteAllOrders(trade);
@@ -75,6 +77,7 @@ void OnTick()
    }
    if(TimeCurrent() < MC){
       market_lh_calculated = false;
+      day_profit = 0;
       return;
    }
 
@@ -106,7 +109,9 @@ void OnTick()
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;  
    
    if(!IsNewCandle(tf)) return;
-    
+   
+   if(day_profit<=daily_loss_limit) return;
+   
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    
@@ -165,6 +170,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
       if(deal.Magic()==Magic && deal.Symbol()==_Symbol){
          if(deal.Entry()==DEAL_ENTRY_OUT){
             DeleteAllOrders(trade);
+            day_profit += deal.Profit();
             ulong pos_tickets[];
             GetMyPositionsTickets(Magic, pos_tickets);
             int npos = ArraySize(pos_tickets);
