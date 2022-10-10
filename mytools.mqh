@@ -91,10 +91,12 @@ void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double t
       if(bid_price - open_price < trigger_points*_Point) return;
       new_sl = bid_price - slpoints * _Point;
       if(new_sl < current_sl) return;
+      if(new_sl < open_price) return;
    }else if(pos_type == POSITION_TYPE_SELL){
       if(open_price - ask_price < trigger_points*_Point) return;
       new_sl = ask_price + slpoints * _Point;
       if(new_sl > current_sl) return;
+      if(new_sl > open_price) return;
    }
    new_sl = NormalizeDouble(new_sl, _Digits);
    trade.PositionModify(pos_ticket, new_sl, current_tp);
