@@ -43,6 +43,9 @@ MqlRates ML, MH; // market low, high
 bool market_lh_calculated = false;
 int atr_handle;
 double day_profit;
+bool new_candle = false;
+bool buy_allowed = false;  // deactivated
+bool sell_allowed = false;  // deactivated
 
 #define MO StringToTime(_MO)  // market open time
 #define MC MO + market_duration_minutes*60  // market close time
@@ -70,6 +73,8 @@ void OnDeinit(const int reason){
 
 void OnTick()
 {      
+   new_candle = IsNewCandle(tf);
+   
    if(TimeCurrent() >= MT || TimeCurrent()<MO){
       CloseAllPositions(trade);
       DeleteAllOrders(trade);
@@ -79,6 +84,8 @@ void OnTick()
    if(TimeCurrent() < MC){
       market_lh_calculated = false;
       day_profit = 0;
+      buy_allowed = true;
+      sell_allowed = true;
       return;
    }
 
@@ -109,14 +116,14 @@ void OnTick()
    }
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;  
    
-   if(!IsNewCandle(tf)) return;
+   if(!new_candle) return;
    
    if(day_profit<=daily_loss_limit) return;
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    
-   if(iClose(_Symbol,tf,1) > MH.high){// && iOpen(_Symbol,tf,1) <= MH.high){
+   if(iClose(_Symbol,tf,1) > MH.high && buy_allowed){// && iOpen(_Symbol,tf,1) <= MH.high){
       double p1_ = ML.low;
       double p2_ = MH.high;
       double p1 = second_order_price_ratio * (p1_-p2_) + p2_;
@@ -137,7 +144,7 @@ void OnTick()
       trade.BuyLimit(lot_, p1, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
       trade.BuyLimit(lot_, p1, _Symbol, sl, tp2, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
 
-   }else if(iClose(_Symbol,tf,1) < ML.low){// && iOpen(_Symbol,tf,1) >= ML.low){
+   }else if(iClose(_Symbol,tf,1) < ML.low && sell_allowed){// && iOpen(_Symbol,tf,1) >= ML.low){
       double p1_ = MH.high;
       double p2_ = ML.low;
       double p1 = second_order_price_ratio * (p1_-p2_) + p2_;
@@ -180,7 +187,11 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
                PositionSelectByTicket(pos_tickets[i]);
                sl = PositionGetDouble(POSITION_PRICE_OPEN);                             
                trade.PositionModify(pos_tickets[i], sl, 0); 
-            }           
+            }
+            //if(deal.Profit()<0){
+            //   if(deal.DealType()==DEAL_TYPE_BUY) sell_allowed=false;
+            //   if(deal.DealType()==DEAL_TYPE_SELL) buy_allowed=false;
+            //}           
          }
       }
    }   
