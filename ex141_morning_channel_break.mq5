@@ -12,11 +12,14 @@ TODO:
    9- market close time input as number of bars starting from market open  ==> DONE
    10- add stoploss trailing using atr.  ==> DONE
    11- find the channel box based on volume.
+   12- find the channel box based on the previous days behavior.
+   
 */
 
 
 #include <../Experts/mq5ea/mytools.mqh>
 
+input group "Time"
 input bool use_chart_timeframe = true;
 input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M15;
 input int market_open_hour = 10;
@@ -24,13 +27,16 @@ input int market_open_minute = 0;
 input int market_duration_minutes = 60;
 input int market_terminate_hour = 21;
 input int market_terminate_minute = 0;
+input group "Risk"
 input double sl_offset_points = 50;  // sl offset points channel edge
 input double risk = 2;  // risk %
 input double daily_loss_limit = -100;  // daily loss limit ($)
 input double Rr = 3;  // reward/risk ratio
+input group "Position"
 input bool instant_entry = false;
 input double second_order_price_ratio = 0.5;  // second order price ratio. 0 close to first order. 1 on the other side of the channel.
 input bool close_only_half_size_on_tp = true;
+input group "Trailing"
 input bool trailing_stoploss = true;
 input int atr_period = 100;
 input double atr_channel_deviation = 2;
@@ -44,8 +50,8 @@ bool market_lh_calculated = false;
 int atr_handle;
 double day_profit;
 bool new_candle = false;
-bool buy_allowed = false;  // deactivated
-bool sell_allowed = false;  // deactivated
+bool buy_allowed = true;  // deactivated
+bool sell_allowed = true;  // deactivated
 
 #define MO StringToTime(_MO)  // market open time
 #define MC MO + market_duration_minutes*60  // market close time
