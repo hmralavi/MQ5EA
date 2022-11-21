@@ -1,20 +1,26 @@
 #property description "Average True Range Channel"
 //--- indicator settings
 #property indicator_chart_window
-#property indicator_buffers 4
-#property indicator_plots   2
+#property indicator_buffers 9
+#property indicator_plots   3
 
-#property indicator_type1   DRAW_LINE
-#property indicator_color1  DodgerBlue
-#property indicator_label1  "ATR-HIGH"
+#property indicator_type1     DRAW_COLOR_CANDLES
+#property indicator_color1    clrGreen, clrRed
+#property indicator_label1    "HAO;HAH;HAL;HAC"
 
 #property indicator_type2   DRAW_LINE
 #property indicator_color2  DodgerBlue
-#property indicator_label2  "ATR-LOW"
+#property indicator_label2  "ATR-HIGH"
+
+#property indicator_type3   DRAW_LINE
+#property indicator_color3  DodgerBlue
+#property indicator_label3  "ATR-LOW"
 //--- input parameters
+input bool UseHeikenAshiCandles = false;
 input int InpAtrPeriod=100;  // ATR period
 input double InpAtrChannelDeviation=2; // ATR channel deviation
 //--- indicator buffers
+double HAO[], HAH[], HAL[], HAC[], HAClr[]; // heiken ashi candles
 double ExtATRBuffer[], ExtTRBuffer[], atrhigh[], atrlow[];
 int ExtPeriodATR;
 #define HCALC(i) ((close[i]+open[i])/2+InpAtrChannelDeviation*ExtATRBuffer[i])
@@ -33,20 +39,74 @@ void OnInit()
    else
       ExtPeriodATR=InpAtrPeriod;
 //--- indicator buffers mapping
-   SetIndexBuffer(0, atrhigh, INDICATOR_DATA);
-   SetIndexBuffer(1, atrlow, INDICATOR_DATA);
-   SetIndexBuffer(2, ExtATRBuffer, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(3, ExtTRBuffer, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(0, HAO, INDICATOR_DATA);
+   SetIndexBuffer(1, HAH, INDICATOR_DATA);
+   SetIndexBuffer(2, HAL, INDICATOR_DATA);
+   SetIndexBuffer(3, HAC, INDICATOR_DATA);
+   SetIndexBuffer(4, HAClr, INDICATOR_COLOR_INDEX);
+   SetIndexBuffer(5, atrhigh, INDICATOR_DATA);
+   SetIndexBuffer(6, atrlow, INDICATOR_DATA);
+   SetIndexBuffer(7, ExtATRBuffer, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(8, ExtTRBuffer, INDICATOR_CALCULATIONS);
 //---
    IndicatorSetInteger(INDICATOR_DIGITS,_Digits);
 //--- sets first bar from what index will be drawn
-   PlotIndexSetInteger(0,PLOT_DRAW_BEGIN,InpAtrPeriod);
    PlotIndexSetInteger(1,PLOT_DRAW_BEGIN,InpAtrPeriod);
+   PlotIndexSetInteger(2,PLOT_DRAW_BEGIN,InpAtrPeriod);
+   
+   if(UseHeikenAshiCandles){
+      ChartSetInteger(0, CHART_MODE, CHART_LINE);
+      ChartSetInteger(0, CHART_COLOR_CHART_LINE, ChartGetInteger(0, CHART_COLOR_BACKGROUND));
+   }
   }
+
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[],
+                const long &tick_volume[],
+                const long &volume[],
+                const int &spread[]){
+   int start;
+   if(prev_calculated==0){
+      HAL[0]=low[0];
+      HAH[0]=high[0];
+      HAO[0]=open[0];
+      HAC[0]=close[0];
+      start=1;
+   }else{
+      start=prev_calculated-1;
+   }
+
+   for(int i=start;i<rates_total;i++){
+      //-- calculate heiken ashi candles
+      if(UseHeikenAshiCandles){
+         HAO[i] = (HAO[i-1]+HAC[i-1])/2;
+         HAC[i] = (open[i]+high[i]+low[i]+close[i])/4;
+         HAH[i] = MathMax(high[i],MathMax(HAO[i],HAC[i]));
+         HAL[i] = MathMin(low[i],MathMin(HAO[i],HAC[i]));
+      }else{
+         HAO[i] = open[i];
+         HAC[i] = close[i];
+         HAH[i] = high[i];
+         HAL[i] = low[i];   
+      }
+      HAO[i] = NormalizeDouble(HAO[i], _Digits);
+      HAC[i] = NormalizeDouble(HAC[i], _Digits);
+      HAH[i] = NormalizeDouble(HAH[i], _Digits);
+      HAL[i] = NormalizeDouble(HAL[i], _Digits);
+      HAClr[i]=HAO[i]<HAC[i]?0.0:1.0; // set candle color
+   }
+   calculate_atr(rates_total, prev_calculated, time, HAO, HAH, HAL, HAC, tick_volume, volume, spread);
+   return (rates_total);
+}      
 //+------------------------------------------------------------------+
 //| Average True Range                                               |
 //+------------------------------------------------------------------+
-int OnCalculate(const int rates_total,
+int calculate_atr(const int rates_total,
                 const int prev_calculated,
                 const datetime &time[],
                 const double &open[],
