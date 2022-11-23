@@ -66,7 +66,7 @@ int OnInit()
    else tf = costume_timeframe;
    ObjectsDeleteAll(0);
    if(trailing_stoploss){
-      atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", atr_period, atr_channel_deviation);
+      atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
       ChartIndicatorAdd(0, 0, atr_handle);
    }
    return(INIT_SUCCEEDED);
@@ -116,7 +116,7 @@ void OnTick()
          double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
          double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
          double atr[1];
-         CopyBuffer(atr_handle, pos_type==POSITION_TYPE_BUY?1:0, 0, 1, atr);  // buffer 0 atrhigh, buffer 1 atrlow
+         CopyBuffer(atr_handle, pos_type==POSITION_TYPE_BUY?6:5, 0, 1, atr);  // buffer 5 atrhigh, buffer 6 atrlow
          TrailingStoploss(trade, pos_tickets[ipos], MathAbs(atr[0]-curr_price)/_Point, MathAbs((org_sl-open_price)/_Point));         
       }
    }
