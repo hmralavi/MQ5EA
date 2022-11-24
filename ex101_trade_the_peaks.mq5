@@ -10,22 +10,30 @@ tp based on reward/risk ratio
 */
 #include <../Experts/mq5ea/mytools.mqh>
 
-input int NCandlesSearch = 500;
+input int NCandlesSearch = 200;
 input int NCandlesPeak = 6;
-input double risk = 5;  // risk %
+input double risk = 2;  // risk %
 input int sl_points_offset = 50;
-input double Rr = 2;  // reward/risk ratio
+input double Rr = 3;  // reward/risk ratio
+input double fib1 = 0.07;
+input double fib2 = 0.88;
+input int fib1lot = 1;
+input int fib2lot = 1;
 
 int Magic = 110;
-double fiblevels[5] = {0.05, 0.236, 0.382, 0.5, 0.618};
-double lotlevels[5] = {5, 5, 3, 2, 1};
+double fiblevels[2];
+double lotlevels[2];
 CTrade trade;
 
 int OnInit()
 {
    trade.SetExpertMagicNumber(Magic);
-   return(INIT_SUCCEEDED);
    ObjectsDeleteAll(0);
+   fiblevels[0] = fib1;
+   fiblevels[1] = fib2;
+   lotlevels[0] = fib1lot;
+   lotlevels[1] = fib2lot;
+   return(INIT_SUCCEEDED);
 }
 
 void OnDeinit(const int reason)
@@ -36,9 +44,7 @@ void OnDeinit(const int reason)
 void OnTick()
 {
    if(!IsNewCandle(_Period)) return;   
-
-
-   
+ 
    PeakProperties peaks[];
    DetectPeaks(peaks, _Period, 1, NCandlesSearch, NCandlesPeak, false);
    ObjectsDeleteAll(0);
@@ -83,7 +89,8 @@ void OnTick()
    }
    
    double bid_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double p[5];
+   double p[];
+   ArrayResize(p, ArraySize(fiblevels));
    int nlevels = ArraySize(fiblevels);
    double meanp=0;
    double lotsum=0;
