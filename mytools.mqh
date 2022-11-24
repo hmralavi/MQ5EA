@@ -123,7 +123,7 @@ void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandle
       _isbottom = true;
       for(int i=-ncandles_peak; i<=ncandles_peak; i++){
          if(i==0) continue;
-         double w = weighted_peaks?2.0*MathSqrt(MathAbs(i))*_Point:0;
+         double w = weighted_peaks?1.0*MathSqrt(MathAbs(i))*_Point:0;
          _istop = _istop && (mrate[icandle].high >= mrate[icandle+i].high+w);// && (mrate[icandle].low>=mrate[icandle+i].low-1.0*MathSqrt(MathAbs(i))*_Point);
          _isbottom = _isbottom && (mrate[icandle].low <= mrate[icandle+i].low-w);// && (mrate[icandle].high<=mrate[icandle+i].high+1.0*MathSqrt(MathAbs(i))*_Point);
          if(!_istop && !_isbottom) break;
