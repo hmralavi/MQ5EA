@@ -10,13 +10,23 @@ tp based on reward/risk ratio
 */
 #include <../Experts/mq5ea/mytools.mqh>
 
+input group "Peak and trend detection"
 input int NCandlesSearch = 200;
 input int NCandlesPeak = 6;
+
+input group "Money Management"
 input double risk = 2;  // risk %
 input int sl_points_offset = 50;
-input double Rr = 3;  // reward/risk ratio
-input double fib1 = 0.07;
-input double fib2 = 0.88;
+input double Rr = 4.5;  // reward/risk ratio
+
+input group "Trailing stoploss"
+input bool trailing_stoploss = true;
+input double tsl_offset_points = 300;
+input double tsl_trigger_points = 300;
+
+input group "Fibonacci levels"
+input double fib1 = 0.24;
+input double fib2 = 0.57;
 input int fib1lot = 1;
 input int fib2lot = 1;
 
@@ -43,10 +53,22 @@ void OnDeinit(const int reason)
 
 void OnTick()
 {
+   ulong pos_tickets[];
+   GetMyPositionsTickets(Magic, pos_tickets);   
+   int npos = ArraySize(pos_tickets);
+   if(npos>0){
+      if(trailing_stoploss){
+         for(int ipos=0;ipos<npos;ipos++){
+            TrailingStoploss(trade, pos_tickets[ipos], tsl_offset_points, tsl_trigger_points);         
+         }
+      }
+      return;
+   }
+   
    if(!IsNewCandle(_Period)) return;   
  
    PeakProperties peaks[];
-   DetectPeaks(peaks, _Period, 1, NCandlesSearch, NCandlesPeak, false);
+   DetectPeaks(peaks, _Period, 1, NCandlesSearch, NCandlesPeak, true);
    ObjectsDeleteAll(0);
    ObjectsDeleteAll(0);
    ChartRedraw(0);
@@ -58,7 +80,7 @@ void OnTick()
    PlotPeaks(peaks_);
    ChartRedraw(0);
    
-   ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(_Period, 1, NCandlesSearch, NCandlesPeak, false);
+   ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(_Period, 1, NCandlesSearch, NCandlesPeak, true);
    switch(market_trend) {
       case MARKET_TREND_BEARISH:
          Comment("BEARISH");
@@ -70,11 +92,7 @@ void OnTick()
          Comment("NEUTRAL");
          break;
    }
-   
-   ulong pos_tickets[];
-   GetMyPositionsTickets(Magic, pos_tickets);
-   if(ArraySize(pos_tickets) > 0) return;   
-   
+      
    DeleteAllOrders(trade);   
    
    if(market_trend==MARKET_TREND_NEUTRAL) return;
