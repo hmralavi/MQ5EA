@@ -139,16 +139,27 @@ void OnTick()
       double tp = p2_ + Rr * (p2_-p1_);
       double lot = calculate_lot_size((meanp-sl)/_Point, risk);
       double lot_ = NormalizeDouble(lot/4, 2);
-      double tp2 = close_only_half_size_on_tp?0:tp;
       if(instant_entry){
-         trade.Buy(lot_, _Symbol, p2, sl, tp, DoubleToString(sl, _Digits));
-         trade.Buy(lot_, _Symbol, p2, sl, tp2, DoubleToString(sl, _Digits));
+         if(close_only_half_size_on_tp){
+            trade.Buy(lot_, _Symbol, p2, sl, tp, DoubleToString(sl, _Digits));
+            trade.Buy(lot_, _Symbol, p2, sl, 0, DoubleToString(sl, _Digits));
+         }else{
+            trade.Buy(2*lot_, _Symbol, p2, sl, tp, DoubleToString(sl, _Digits));
+         }
       }else{
-         trade.BuyLimit(lot_, p2, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
-         trade.BuyLimit(lot_, p2, _Symbol, sl, tp2, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+         if(close_only_half_size_on_tp){
+            trade.BuyLimit(lot_, p2, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+            trade.BuyLimit(lot_, p2, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+         }else{
+            trade.BuyLimit(2*lot_, p2, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+         }
       }
-      trade.BuyLimit(lot_, p1, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
-      trade.BuyLimit(lot_, p1, _Symbol, sl, tp2, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+      if(close_only_half_size_on_tp){
+         trade.BuyLimit(lot_, p1, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+         trade.BuyLimit(lot_, p1, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+      }else{
+         trade.BuyLimit(2*lot_, p1, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+      }
 
    }else if(iClose(_Symbol,tf,1) < ML.low && sell_allowed){// && iOpen(_Symbol,tf,1) >= ML.low){
       double p1_ = MH.high;
@@ -160,16 +171,27 @@ void OnTick()
       double tp = p2_ - Rr * (p1_-p2_);
       double lot = calculate_lot_size((sl-meanp)/_Point, risk);
       double lot_ = NormalizeDouble(lot/4, 2);
-      double tp2 = close_only_half_size_on_tp?0:tp;
       if(instant_entry){
-         trade.Sell(lot_, _Symbol, p2, sl, tp, DoubleToString(sl, _Digits));
-         trade.Sell(lot_, _Symbol, p2, sl, tp2, DoubleToString(sl, _Digits));
+         if(close_only_half_size_on_tp){
+            trade.Sell(lot_, _Symbol, p2, sl, tp, DoubleToString(sl, _Digits));
+            trade.Sell(lot_, _Symbol, p2, sl, 0, DoubleToString(sl, _Digits));
+         }else{
+            trade.Sell(2*lot_, _Symbol, p2, sl, tp, DoubleToString(sl, _Digits));
+         }
       }else{
-         trade.SellLimit(lot_, p2, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
-         trade.SellLimit(lot_, p2, _Symbol, sl, tp2, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+         if(close_only_half_size_on_tp){
+            trade.SellLimit(lot_, p2, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+            trade.SellLimit(lot_, p2, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+         }else{
+            trade.Sell(2*lot_, _Symbol, p2, sl, tp, DoubleToString(sl, _Digits));
+         }
       }
-      trade.SellLimit(lot_, p1, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
-      trade.SellLimit(lot_, p1, _Symbol, sl, tp2, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+      if(close_only_half_size_on_tp){
+         trade.SellLimit(lot_, p1, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+         trade.SellLimit(lot_, p1, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+      }else{
+         trade.SellLimit(2*lot_, p1, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+      }
    }
 }
 
@@ -224,6 +246,6 @@ double calculate_lot_size(double slpoints, double risk_percent){
    double balance = MathMin(1000,AccountInfoDouble(ACCOUNT_BALANCE));
    double riskusd = risk_percent * balance / 100;
    double lot = riskusd/slpoints;
-   lot = NormalizeDouble((MathFloor(lot*100/2)*2)/100,2);
+   lot = NormalizeDouble(lot, 2);
    return lot;
 }
