@@ -10,13 +10,15 @@ Strategy:
 #include <../Experts/mq5ea/mytools.mqh>
 
 input bool use_chart_timeframe = true;
-input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M1;
-input double sl_points = 100;  // sl points 
-input double tp_points = 350;  // tp points 
+input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M5;
+input double sl_points = 300;  // sl points 
+input double tp_points = 3000;  // tp points 
 input double lot = 0.01;  // lot size
-input int atr_period = 30;
-input double atr_channel_deviation = 4.0;
-input int n_candles_atr_trend = 5;
+input int atr_period = 100;
+input double atr_channel_deviation = 3.6;
+input int n_candles_atr_trend = 6;
+input double risk_free_in_loss_trigger_points = 75; 
+input double risk_free_in_profit_trigger_points = 1000; 
 input int Magic = 170;  // EA's magic number
 
 CTrade trade;
@@ -42,13 +44,6 @@ void OnDeinit(const int reason)
 
 void OnTick()
 {
-   if(!IsNewCandle(tf)) return;
-   
-   double atrlow[], atrhigh[];
-   ArraySetAsSeries(atrlow, true);
-   ArraySetAsSeries(atrhigh, true);
-   CopyBuffer(atr_handle, 6, 1, n_candles_atr_trend, atrlow);  // buffer 5 atrhigh, buffer 6 atrlow
-   CopyBuffer(atr_handle, 5, 1, n_candles_atr_trend, atrhigh);  // buffer 5 atrhigh, buffer 6 atrlow
    
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
@@ -76,6 +71,47 @@ void OnTick()
       if(ord_type==ORDER_TYPE_BUY_LIMIT) buyord = ord_tickets[iord];
       if(ord_type==ORDER_TYPE_SELL_LIMIT) sellord = ord_tickets[iord];
    }
+   
+   if(buypos>0){
+      PositionSelectByTicket(buypos);
+      double current_sl = PositionGetDouble(POSITION_SL);
+      double current_tp = PositionGetDouble(POSITION_TP);
+      double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+      if(current_sl != open_price && current_tp != open_price){
+         double bidprice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+         double profit_points = (bidprice-open_price)/_Point;
+         if(profit_points>risk_free_in_profit_trigger_points && risk_free_in_profit_trigger_points>0){
+            trade.PositionModify(buypos, open_price, current_tp);
+         }else if(profit_points<-risk_free_in_loss_trigger_points && risk_free_in_loss_trigger_points>0){
+            trade.PositionModify(buypos, current_sl, open_price);
+         }
+      }
+   }
+   
+   if(sellpos>0){
+      PositionSelectByTicket(sellpos);      
+      double current_sl = PositionGetDouble(POSITION_SL);
+      double current_tp = PositionGetDouble(POSITION_TP);
+      double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+      if(current_sl != open_price && current_tp != open_price){
+         double askprice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+         double profit_points = (open_price-askprice)/_Point;
+         if(profit_points>risk_free_in_profit_trigger_points && risk_free_in_profit_trigger_points>0){
+            trade.PositionModify(sellpos, open_price, current_tp);
+         }else if(profit_points<-risk_free_in_loss_trigger_points && risk_free_in_loss_trigger_points>0){
+            trade.PositionModify(sellpos, current_sl, open_price);
+         }     
+      } 
+   }
+   
+   if(!IsNewCandle(tf)) return;
+   
+   double atrlow[], atrhigh[];
+   ArraySetAsSeries(atrlow, true);
+   ArraySetAsSeries(atrhigh, true);
+   CopyBuffer(atr_handle, 6, 1, n_candles_atr_trend, atrlow);  // buffer 5 atrhigh, buffer 6 atrlow
+   CopyBuffer(atr_handle, 5, 1, n_candles_atr_trend, atrhigh);  // buffer 5 atrhigh, buffer 6 atrlow
+
    
    if(buypos==0){
       if(buyord==0){   // place buy order
@@ -117,8 +153,6 @@ void OnTick()
          double tp = NormalizeDouble(newpr - tp_points*_Point, _Digits);
          if(newpr<oldpr) trade.OrderModify(sellord, newpr, sl, tp, ORDER_TIME_GTC, 0);                  
       }
-   
    }
-
 }
 
