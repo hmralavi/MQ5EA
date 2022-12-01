@@ -10,12 +10,12 @@ Strategy:
 #include <../Experts/mq5ea/mytools.mqh>
 
 input bool use_chart_timeframe = true;
-input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M5;
-input double sl_points = 50;  // sl points 
-input double tp_points = 70;  // tp points 
+input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M1;
+input double sl_points = 100;  // sl points 
+input double tp_points = 350;  // tp points 
 input double lot = 0.01;  // lot size
-input int atr_period = 100;
-input double atr_channel_deviation = 2;
+input int atr_period = 30;
+input double atr_channel_deviation = 4.0;
 input int n_candles_atr_trend = 5;
 input int Magic = 170;  // EA's magic number
 
