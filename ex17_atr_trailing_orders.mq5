@@ -121,8 +121,8 @@ void OnTick()
    if(buy_order==0){   
       if(n_positions_allowed_in_one_direction>nbuypos && all_buy_positions_risk_free){ // place buy order
          bool is_atr_trendy = true;
-         //for(int iatr=0;iatr<n_candles_atr_trend-1;iatr++) is_atr_trendy = is_atr_trendy && (atrlow[iatr]>atrlow[iatr+1]);
-         is_atr_trendy = atrlow[0]>atrlow[n_candles_atr_trend-1];
+         for(int iatr=0;iatr<n_candles_atr_trend-1;iatr++) is_atr_trendy = is_atr_trendy && (atrlow[iatr]>atrlow[iatr+1]);
+         //is_atr_trendy = atrlow[0]>atrlow[n_candles_atr_trend-1];
          if(is_atr_trendy){
             double pr = NormalizeDouble(atrlow[0], _Digits);
             double sl = NormalizeDouble(pr - sl_points*_Point, _Digits);
@@ -143,8 +143,8 @@ void OnTick()
    if(sell_order==0){
       if(n_positions_allowed_in_one_direction>nsellpos && all_sell_positions_risk_free){ // place sell order
          bool is_atr_trendy = true;
-         //for(int iatr=0;iatr<n_candles_atr_trend-1;iatr++) is_atr_trendy = is_atr_trendy && (atrhigh[iatr]<atrhigh[iatr+1]);
-         is_atr_trendy = atrhigh[0]<atrhigh[n_candles_atr_trend-1];
+         for(int iatr=0;iatr<n_candles_atr_trend-1;iatr++) is_atr_trendy = is_atr_trendy && (atrhigh[iatr]<atrhigh[iatr+1]);
+         //is_atr_trendy = atrhigh[0]<atrhigh[n_candles_atr_trend-1];
          if(is_atr_trendy){
             double pr = NormalizeDouble(atrhigh[0], _Digits);
             double sl = NormalizeDouble(pr + sl_points*_Point, _Digits);
