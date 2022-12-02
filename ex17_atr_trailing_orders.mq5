@@ -20,6 +20,7 @@ input int n_positions_allowed_in_one_direction = 5;
 input group "Position Management"
 input double breakeven_in_loss_trigger_points = 75; 
 input double risk_free_in_profit_trigger_points = 1000; 
+input bool close_all_similar_positions_if_sl_tp_hits = false;
 input bool trailing_stoploss_enabled = false;
 input double tsl_points = 1000;
 input group "ATR settings"
@@ -168,6 +169,37 @@ void OnTick()
       double sl = NormalizeDouble(newpr + sl_points*_Point, _Digits);
       double tp = NormalizeDouble(newpr - tp_points*_Point, _Digits);
       if(newpr<oldpr) trade.OrderModify(sell_order, newpr, sl, tp, ORDER_TIME_GTC, 0);                  
+   }
+}
+
+
+
+void OnTradeTransaction(const MqlTradeTransaction& trans,
+                        const MqlTradeRequest& request,
+                        const MqlTradeResult& result){
+   
+   if(!close_all_similar_positions_if_sl_tp_hits) return;
+   if(trans.type == TRADE_TRANSACTION_DEAL_ADD){
+      CDealInfo deal;
+      deal.Ticket(trans.deal);
+      HistorySelect(TimeCurrent()-PeriodSeconds(PERIOD_W1), TimeCurrent()+10);
+      if(deal.Magic()==Magic && deal.Symbol()==_Symbol){
+         if(deal.Entry()==DEAL_ENTRY_OUT){
+            bool close_sells = false;
+            bool close_buys = false;
+            if(deal.DealType()==DEAL_TYPE_BUY) close_sells = true;
+            if(deal.DealType()==DEAL_TYPE_SELL) close_buys = true;
+            ulong pos_tickets[];
+            GetMyPositionsTickets(Magic, pos_tickets);
+            int npos = ArraySize(pos_tickets);   
+            for(int ipos=0;ipos<npos;ipos++){
+               PositionSelectByTicket(pos_tickets[ipos]);
+               ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+               if(close_sells && pos_type==POSITION_TYPE_SELL) trade.PositionClose(pos_tickets[ipos]);
+               if(close_buys && pos_type==POSITION_TYPE_BUY) trade.PositionClose(pos_tickets[ipos]);    
+            }
+         }
+      }
    }
 }
 
