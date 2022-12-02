@@ -77,7 +77,7 @@ void OnTick()
       double current_sl = PositionGetDouble(POSITION_SL);
       double current_tp = PositionGetDouble(POSITION_TP);
       double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-      if(current_sl != open_price && current_tp != open_price){
+      if(current_sl < open_price && current_tp > open_price){
          double bidprice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
          double profit_points = (bidprice-open_price)/_Point;
          if(profit_points>risk_free_in_profit_trigger_points && risk_free_in_profit_trigger_points>0){
@@ -93,7 +93,7 @@ void OnTick()
       double current_sl = PositionGetDouble(POSITION_SL);
       double current_tp = PositionGetDouble(POSITION_TP);
       double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-      if(current_sl != open_price && current_tp != open_price){
+      if(current_sl > open_price && current_tp < open_price){
          double askprice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
          double profit_points = (open_price-askprice)/_Point;
          if(profit_points>risk_free_in_profit_trigger_points && risk_free_in_profit_trigger_points>0){
