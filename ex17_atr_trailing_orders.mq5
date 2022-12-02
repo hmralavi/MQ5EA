@@ -9,17 +9,22 @@ Strategy:
 
 #include <../Experts/mq5ea/mytools.mqh>
 
+input group "Time Frame"
 input bool use_chart_timeframe = true;
 input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M5;
+input group "Order settings"
 input double sl_points = 300;  // sl points 
 input double tp_points = 3000;  // tp points 
 input double lot = 0.01;  // lot size
+input int n_positions_allowed_in_one_direction = 1;
+input group "Position Management"
+input double breakeven_in_loss_trigger_points = 75; 
+input double risk_free_in_profit_trigger_points = 1000; 
+input group "ATR settings"
 input int atr_period = 100;
 input double atr_channel_deviation = 3.6;
 input int n_candles_atr_trend = 6;
-input double risk_free_in_loss_trigger_points = 75; 
-input double risk_free_in_profit_trigger_points = 1000; 
-input int n_positions_allowed_in_one_direction = 1;
+input group "EA settings"
 input int Magic = 170;  // EA's magic number
 
 CTrade trade;
@@ -68,7 +73,7 @@ void OnTick()
             double profit_points = (bidprice-open_price)/_Point;
             if(profit_points>risk_free_in_profit_trigger_points && risk_free_in_profit_trigger_points>0){
                trade.PositionModify(pos_tickets[ipos], open_price, current_tp);
-            }else if(profit_points<-risk_free_in_loss_trigger_points && risk_free_in_loss_trigger_points>0){
+            }else if(profit_points<-breakeven_in_loss_trigger_points && breakeven_in_loss_trigger_points>0){
                trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
             }
          }
@@ -83,7 +88,7 @@ void OnTick()
             double profit_points = (open_price-askprice)/_Point;
             if(profit_points>risk_free_in_profit_trigger_points && risk_free_in_profit_trigger_points>0){
                trade.PositionModify(pos_tickets[ipos], open_price, current_tp);
-            }else if(profit_points<-risk_free_in_loss_trigger_points && risk_free_in_loss_trigger_points>0){
+            }else if(profit_points<-breakeven_in_loss_trigger_points && breakeven_in_loss_trigger_points>0){
                trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
             }
          }
