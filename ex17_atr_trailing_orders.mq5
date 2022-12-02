@@ -118,9 +118,9 @@ void OnTick()
       if(ord_type==ORDER_TYPE_SELL_LIMIT) sell_order = ord_tickets[iord];
    }
    
-   if(n_positions_allowed_in_one_direction>nbuypos && all_buy_positions_risk_free){
-      if(buy_order==0){   // place buy order
-         bool is_atr_trendy=true;
+   if(buy_order==0){   
+      if(n_positions_allowed_in_one_direction>nbuypos && all_buy_positions_risk_free){ // place buy order
+         bool is_atr_trendy = true;
          //for(int iatr=0;iatr<n_candles_atr_trend-1;iatr++) is_atr_trendy = is_atr_trendy && (atrlow[iatr]>atrlow[iatr+1]);
          is_atr_trendy = atrlow[0]>atrlow[n_candles_atr_trend-1];
          if(is_atr_trendy){
@@ -129,19 +129,20 @@ void OnTick()
             double tp = NormalizeDouble(pr + tp_points*_Point, _Digits);
             trade.BuyLimit(lot, pr, _Symbol, sl, tp);
          }
-      }else{   // modify buy order
-         OrderSelect(buy_order);
-         double oldpr = OrderGetDouble(ORDER_PRICE_OPEN);
-         double newpr = atrlow[0];
-         double sl = NormalizeDouble(newpr - sl_points*_Point, _Digits);
-         double tp = NormalizeDouble(newpr + tp_points*_Point, _Digits);
-         if(newpr>oldpr) trade.OrderModify(buy_order, newpr, sl, tp, ORDER_TIME_GTC, 0);      
       }
+   }else{   // modify buy order
+      OrderSelect(buy_order);
+      double oldpr = OrderGetDouble(ORDER_PRICE_OPEN);
+      double newpr = atrlow[0];
+      double sl = NormalizeDouble(newpr - sl_points*_Point, _Digits);
+      double tp = NormalizeDouble(newpr + tp_points*_Point, _Digits);
+      if(newpr>oldpr) trade.OrderModify(buy_order, newpr, sl, tp, ORDER_TIME_GTC, 0);      
    }
    
-   if(n_positions_allowed_in_one_direction>nsellpos && all_sell_positions_risk_free){
-      if(sell_order==0){   // place sell order
-         bool is_atr_trendy=true;
+   
+   if(sell_order==0){
+      if(n_positions_allowed_in_one_direction>nsellpos && all_sell_positions_risk_free){ // place sell order
+         bool is_atr_trendy = true;
          //for(int iatr=0;iatr<n_candles_atr_trend-1;iatr++) is_atr_trendy = is_atr_trendy && (atrhigh[iatr]<atrhigh[iatr+1]);
          is_atr_trendy = atrhigh[0]<atrhigh[n_candles_atr_trend-1];
          if(is_atr_trendy){
@@ -150,14 +151,14 @@ void OnTick()
             double tp = NormalizeDouble(pr - tp_points*_Point, _Digits);
             trade.SellLimit(lot, pr, _Symbol, sl, tp);
          }         
-      }else{   // modify sell order
-         OrderSelect(sell_order);
-         double oldpr = OrderGetDouble(ORDER_PRICE_OPEN);
-         double newpr = atrhigh[0];
-         double sl = NormalizeDouble(newpr + sl_points*_Point, _Digits);
-         double tp = NormalizeDouble(newpr - tp_points*_Point, _Digits);
-         if(newpr<oldpr) trade.OrderModify(sell_order, newpr, sl, tp, ORDER_TIME_GTC, 0);                  
       }
+   }else{   // modify sell order
+      OrderSelect(sell_order);
+      double oldpr = OrderGetDouble(ORDER_PRICE_OPEN);
+      double newpr = atrhigh[0];
+      double sl = NormalizeDouble(newpr + sl_points*_Point, _Digits);
+      double tp = NormalizeDouble(newpr - tp_points*_Point, _Digits);
+      if(newpr<oldpr) trade.OrderModify(sell_order, newpr, sl, tp, ORDER_TIME_GTC, 0);                  
    }
 }
 
