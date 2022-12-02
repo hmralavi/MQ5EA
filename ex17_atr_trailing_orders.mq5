@@ -16,10 +16,12 @@ input group "Order settings"
 input double sl_points = 300;  // sl points 
 input double tp_points = 3000;  // tp points 
 input double lot = 0.01;  // lot size
-input int n_positions_allowed_in_one_direction = 1;
+input int n_positions_allowed_in_one_direction = 5;
 input group "Position Management"
 input double breakeven_in_loss_trigger_points = 75; 
 input double risk_free_in_profit_trigger_points = 1000; 
+input bool trailing_stoploss_enabled = false;
+input double tsl_points = 1000;
 input group "ATR settings"
 input int atr_period = 100;
 input double atr_channel_deviation = 3.6;
@@ -77,6 +79,7 @@ void OnTick()
                trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
             }
          }
+         if(trailing_stoploss_enabled) TrailingStoploss(trade, pos_tickets[ipos], tsl_points, risk_free_in_profit_trigger_points);
          PositionSelectByTicket(pos_tickets[ipos]);
          current_sl = PositionGetDouble(POSITION_SL);
          if(current_sl<open_price) all_buy_positions_risk_free = false;
@@ -92,6 +95,7 @@ void OnTick()
                trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
             }
          }
+         if(trailing_stoploss_enabled) TrailingStoploss(trade, pos_tickets[ipos], tsl_points, risk_free_in_profit_trigger_points);
          PositionSelectByTicket(pos_tickets[ipos]);
          current_sl = PositionGetDouble(POSITION_SL);
          if(current_sl>open_price) all_sell_positions_risk_free = false;              
