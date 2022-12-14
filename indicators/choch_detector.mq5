@@ -44,6 +44,7 @@ void OnInit()
    ChartSetInteger(0, CHART_MODE, CHART_LINE);
    color clr = ChartGetInteger(0, CHART_COLOR_BACKGROUND);
    ChartSetInteger(0, CHART_COLOR_CHART_LINE, clr);
+   ArrayFree(PeakIndex);
   }
 //+------------------------------------------------------------------+
 //| Heiken Ashi                                                      |
@@ -87,7 +88,7 @@ int OnCalculate(const int rates_total,
             int npeaks = ArraySize(PeakIndex);
             ArrayResize(PeakIndex, npeaks+1);
             PeakIndex[npeaks] = i;    
-            ExtColorBuffer[i]++;        
+            ExtColorBuffer[i] = ExtTrendbuffer[i]*2 + 1;        
          }
       }
    }
