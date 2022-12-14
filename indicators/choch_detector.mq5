@@ -107,16 +107,12 @@ int OnCalculate(const int rates_total,
       for(int j=npeaks-1;j>=0;j--){
          int pindex = PeakIndex[j];
          if(i<pindex) continue;
-         if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0){
-            if(close[i]>high[pindex] && open[i]<=high[pindex]){
-               ExtTrendbuffer[i] = 1;
-               ExtPeakBrokenBuffer[pindex] = 1;    
-            }            
-         }else if(ExtPeakBuffer[pindex]==2 && ExtPeakBrokenBuffer[pindex]==0){         
-            if(close[i]<low[pindex] && open[i]>=low[pindex]){
-               ExtTrendbuffer[i] = 2;
-               ExtPeakBrokenBuffer[pindex] = 1;  
-            }    
+         if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0 && close[i]>high[pindex]){
+            ExtTrendbuffer[i] = 1;
+            ExtPeakBrokenBuffer[pindex] = 1;          
+         }else if(ExtPeakBuffer[pindex]==2 && ExtPeakBrokenBuffer[pindex]==0 && close[i]<low[pindex]){
+            ExtTrendbuffer[i] = 2;
+            ExtPeakBrokenBuffer[pindex] = 1;  
          }
       }
       ExtColorBuffer[i] = 2*ExtTrendbuffer[i];
