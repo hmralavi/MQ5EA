@@ -1,6 +1,6 @@
 //--- indicator settings
 #property indicator_chart_window
-#property indicator_buffers   8
+#property indicator_buffers   9
 #property indicator_plots     1
 #property indicator_type1     DRAW_COLOR_CANDLES
 #property indicator_color1    clrLightGray, clrGray, clrLightGreen, clrLimeGreen, clrCoral, clrCrimson  // neutral trend; neutral trend peak; bullish trend; peak in bullish trend; bearish trend; peak in bearish trend
@@ -17,6 +17,7 @@ double ExtColorBuffer[];
 double ExtTrendbuffer[]; // 0 neutral, 1 bullish, 2 bearish
 double ExtPeakBuffer[]; // 0 neutral, 1 top, 2 bottom
 double ExtPeakBrokenBuffer[];
+double ExtCandleAnalyzedBuffer[];
 int PeakIndex[];
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -32,6 +33,7 @@ void OnInit()
    SetIndexBuffer(5,ExtTrendbuffer,INDICATOR_CALCULATIONS);
    SetIndexBuffer(6,ExtPeakBuffer,INDICATOR_CALCULATIONS);
    SetIndexBuffer(7,ExtPeakBrokenBuffer,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(8,ExtCandleAnalyzedBuffer,INDICATOR_CALCULATIONS);   
 //---
    IndicatorSetInteger(INDICATOR_DIGITS,_Digits);
 //--- sets first bar from what index will be drawn
@@ -65,6 +67,7 @@ int OnCalculate(const int rates_total,
       ExtTrendbuffer[0]=0;
       ExtPeakBuffer[0]=0;
       ExtPeakBrokenBuffer[0]=0;
+      ExtCandleAnalyzedBuffer[0]=1;
    }
    //--- detect peaks
    for(int i=MathMax(prev_calculated-n_candles_peak-1,1); i<rates_total-n_candles_peak-1 && !IsStopped(); i++){
@@ -83,18 +86,22 @@ int OnCalculate(const int rates_total,
          if(top || bottom){
             int npeaks = ArraySize(PeakIndex);
             ArrayResize(PeakIndex, npeaks+1);
-            PeakIndex[npeaks] = i;            
+            PeakIndex[npeaks] = i;    
+            ExtColorBuffer[i]++;        
          }
       }
    }
    
    //--- detect chock
-   for(int i=MathMax(prev_calculated-1,1); i<rates_total && !IsStopped(); i++){
+   for(int i=MathMax(prev_calculated-2,1); i<rates_total && !IsStopped(); i++){
+
       ExtLBuffer[i]=low[i];
       ExtHBuffer[i]=high[i];
       ExtOBuffer[i]=open[i];
       ExtCBuffer[i]=close[i];      
-      
+      if(i==rates_total-1) continue;
+      if(ExtCandleAnalyzedBuffer[i]==1) continue;
+      ExtCandleAnalyzedBuffer[i] = 1;
       ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
       int npeaks = ArraySize(PeakIndex);     
       for(int j=npeaks-1;j>=0;j--){
@@ -103,12 +110,12 @@ int OnCalculate(const int rates_total,
          if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0){
             if(close[i]>high[pindex] && open[i]<=high[pindex]){
                ExtTrendbuffer[i] = 1;
-               ExtPeakBrokenBuffer[pindex] = 1;              
+               ExtPeakBrokenBuffer[pindex] = 1;    
             }            
          }else if(ExtPeakBuffer[pindex]==2 && ExtPeakBrokenBuffer[pindex]==0){         
             if(close[i]<low[pindex] && open[i]>=low[pindex]){
                ExtTrendbuffer[i] = 2;
-               ExtPeakBrokenBuffer[pindex] = 1;               
+               ExtPeakBrokenBuffer[pindex] = 1;  
             }    
          }
       }
