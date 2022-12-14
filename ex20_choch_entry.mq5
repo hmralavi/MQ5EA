@@ -73,12 +73,14 @@ void OnTick()
    CopyBuffer(ind_handle1, TREND_BUFFER, 1, 2, trend);
    CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
    
-   if(trend[0]!=trend[1]) run_exit_policy();
+   if(trend[0]!=trend[1]) run_early_exit_policy();
    
    if(trend[0]==1 && trend[1]==2 && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double sl = find_nearest_peak_price(false) - sl_points_offset*_Point;
       double tp = ask + (ask-sl)*Rr;
+      sl = NormalizeDouble(sl ,_Digits);
+      tp = NormalizeDouble(tp, _Digits);
       if(sl>ask) return;
       double lot_size = calculate_lot_size((ask-sl)/_Point, risk_percent);
       trade.Buy(lot_size, _Symbol, ask, sl, tp);
@@ -87,6 +89,8 @@ void OnTick()
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double sl = find_nearest_peak_price(true) + sl_points_offset*_Point;
       double tp = bid - (sl-bid)*Rr;
+      sl = NormalizeDouble(sl ,_Digits);
+      tp = NormalizeDouble(tp, _Digits);
       if(sl<bid) return;
       double lot_size = calculate_lot_size((sl-bid)/_Point, risk_percent);
       trade.Sell(lot_size, _Symbol, bid, sl, tp);      
@@ -123,7 +127,7 @@ double find_nearest_peak_price(bool findtop){
 }
 
 
-void run_exit_policy(void){
+void run_early_exit_policy(void){
    if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT){
       CloseAllPositions(trade);
       return;
