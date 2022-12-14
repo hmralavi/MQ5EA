@@ -17,6 +17,7 @@ double ExtColorBuffer[];
 double ExtTrendbuffer[]; // 0 neutral, 1 bullish, 2 bearish
 double ExtPeakBuffer[]; // 0 neutral, 1 top, 2 bottom
 double ExtPeakBrokenBuffer[];
+int PeakIndex[];
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
@@ -79,6 +80,11 @@ int OnCalculate(const int rates_total,
          if(top) ExtPeakBuffer[i] = 1;
          if(bottom) ExtPeakBuffer[i] = 2;
          ExtPeakBrokenBuffer[i] = 0;
+         if(top || bottom){
+            int npeaks = ArraySize(PeakIndex);
+            ArrayResize(PeakIndex, npeaks+1);
+            PeakIndex[npeaks] = i;            
+         }
       }
    }
    
@@ -89,19 +95,20 @@ int OnCalculate(const int rates_total,
       ExtOBuffer[i]=open[i];
       ExtCBuffer[i]=close[i];      
       
-      ExtTrendbuffer[i] = ExtTrendbuffer[i-1];        
-      for(int j=i-1;j>=0;j--){
-         if(ExtPeakBuffer[j]==1 && ExtPeakBrokenBuffer[j]==0){
-            if(close[i]>high[j] && open[i]<=high[j]){
+      ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
+      int npeaks = ArraySize(PeakIndex);     
+      for(int j=npeaks-1;j>=0;j--){
+         int pindex = PeakIndex[j];
+         if(i<pindex) continue;
+         if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0){
+            if(close[i]>high[pindex] && open[i]<=high[pindex]){
                ExtTrendbuffer[i] = 1;
-               ExtPeakBrokenBuffer[j] = 1;
-              
+               ExtPeakBrokenBuffer[pindex] = 1;              
             }            
-         }else if(ExtPeakBuffer[j]==2 && ExtPeakBrokenBuffer[j]==0){         
-            if(close[i]<low[j] && open[i]>=low[j]){
+         }else if(ExtPeakBuffer[pindex]==2 && ExtPeakBrokenBuffer[pindex]==0){         
+            if(close[i]<low[pindex] && open[i]>=low[pindex]){
                ExtTrendbuffer[i] = 2;
-               ExtPeakBrokenBuffer[j] = 1;
-               
+               ExtPeakBrokenBuffer[pindex] = 1;               
             }    
          }
       }
