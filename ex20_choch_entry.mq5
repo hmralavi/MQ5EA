@@ -12,6 +12,11 @@ Strategy:
 
 #include <../Experts/mq5ea/mytools.mqh>
 
+enum ENUM_EARLY_EXIT_POLICY{
+   EARLY_EXIT_POLICY_BREAKEVEN=0,  // Breakeven if in loss/Instant exit if in profit
+   EARLY_EXIT_POLICY_INSTANT=1,  // instant exit anyway
+};
+
 input group "Indicator settings"
 input bool use_costume_timeframe = false;
 input ENUM_TIMEFRAMES costume_timeframe = PERIOD_H1;
@@ -19,10 +24,12 @@ input bool confirm_with_higher_timeframe = true;
 input ENUM_TIMEFRAMES higher_timeframe = PERIOD_D1;
 input int n_candles_peak = 6;
 
-input group "Entry settings"
+input group "Position settings"
 input double sl_points_offset = 100;  // sl points offset from peak
 input double Rr = 2;  // reward/risk ratio 
 input double risk_percent = 2;  // risk percent
+input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
+
 
 input group "EA settings"
 input int Magic = 200;  // EA's magic number
@@ -65,7 +72,8 @@ void OnTick()
    ArraySetAsSeries(higher_trend, true);
    CopyBuffer(ind_handle1, TREND_BUFFER, 1, 2, trend);
    CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
-   if(trend[0]!=trend[1]) CloseAllPositions(trade);
+   
+   if(trend[0]!=trend[1]) run_exit_policy();
    
    if(trend[0]==1 && trend[1]==2 && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -112,4 +120,36 @@ double find_nearest_peak_price(bool findtop){
       if(peaks[i]==2 && broken[i]==0 && !findtop) return low[i];
    }
    return -1;   
+}
+
+
+void run_exit_policy(void){
+   if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT){
+      CloseAllPositions(trade);
+      return;
+      
+   }else if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN){
+      ulong pos_tickets[];
+      GetMyPositionsTickets(Magic, pos_tickets);
+      int npos = ArraySize(pos_tickets);  
+      for(int ipos=0;ipos<npos;ipos++){
+         PositionSelectByTicket(pos_tickets[ipos]);
+         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         double current_sl = PositionGetDouble(POSITION_SL);
+         double current_tp = PositionGetDouble(POSITION_TP);
+         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+         if(pos_type==POSITION_TYPE_BUY && current_sl<open_price && current_tp>open_price){
+            double bidprice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+            double profit_points = (bidprice-open_price)/_Point;
+            if(profit_points>=0) trade.PositionClose(pos_tickets[ipos]);
+            else trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
+         }else if(pos_type==POSITION_TYPE_SELL && current_sl>open_price && current_tp<open_price){
+            double askprice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+            double profit_points = (open_price-askprice)/_Point;
+            if(profit_points>=0) trade.PositionClose(pos_tickets[ipos]);
+            else trade.PositionModify(pos_tickets[ipos], current_sl, open_price);              
+         }
+      }
+      return;
+   }
 }
