@@ -13,8 +13,13 @@ Strategy:
 #include <../Experts/mq5ea/mytools.mqh>
 
 enum ENUM_EARLY_EXIT_POLICY{
-   EARLY_EXIT_POLICY_BREAKEVEN=0,  // Breakeven if in loss/Instant exit if in profit
-   EARLY_EXIT_POLICY_INSTANT=1,  // instant exit anyway
+   EARLY_EXIT_POLICY_BREAKEVEN = 0,  // Breakeven if in loss/Instant exit if in profit
+   EARLY_EXIT_POLICY_INSTANT = 1  // instant exit anyway
+};
+
+enum ENUM_TP_POLICY{
+   TP_POLICY_BASED_ON_FIXED_RR = 0,  // Set tp based on a fixed Rr
+   TP_POLICY_BASED_ON_PEAK = 1  // Set tp based on recent peak and minimum Rr
 };
 
 input group "Indicator settings"
@@ -26,10 +31,10 @@ input int n_candles_peak = 6;
 
 input group "Position settings"
 input double sl_points_offset = 100;  // sl points offset from peak
-input double Rr = 2;  // reward/risk ratio 
 input double risk_percent = 2;  // risk percent
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
-
+input ENUM_TP_POLICY tp_policy = TP_POLICY_BASED_ON_PEAK;
+input double Rr = 2;  // fixed(minimum) reward/risk ratio 
 
 input group "EA settings"
 input int Magic = 200;  // EA's magic number
@@ -77,23 +82,43 @@ void OnTick()
    
    if(trend[0]==1 && trend[1]==2 && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      double sl = find_nearest_peak_price(false) - sl_points_offset*_Point;
-      double tp = ask + (ask-sl)*Rr;
+      double sl = find_nearest_unbroken_peak_price(false, 0, ask);
+      if(sl<0) return;
+      sl = sl - sl_points_offset*_Point;
+      double tp;
+      if(tp_policy == TP_POLICY_BASED_ON_PEAK){
+         double mintp = ask + (ask - sl) * Rr;
+         tp = find_nearest_unbroken_peak_price(true, mintp);
+         if(tp<0) return;
+         tp = tp - sl_points_offset*_Point;
+      }else if(tp_policy == TP_POLICY_BASED_ON_FIXED_RR){
+         tp = ask + (ask - sl) * Rr;
+      }
       sl = NormalizeDouble(sl ,_Digits);
       tp = NormalizeDouble(tp, _Digits);
-      if(sl>ask) return;
+      double _Rr = (tp-ask)/(ask-sl);
       double lot_size = calculate_lot_size((ask-sl)/_Point, risk_percent);
       trade.Buy(lot_size, _Symbol, ask, sl, tp);
    
    }else if(trend[0]==2 && trend[1]==1 && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double sl = find_nearest_peak_price(true) + sl_points_offset*_Point;
-      double tp = bid - (sl-bid)*Rr;
+      double sl = find_nearest_unbroken_peak_price(true, bid);
+      if(sl<0) return;
+      sl = sl + sl_points_offset*_Point;
+      double tp;
+      if(tp_policy == TP_POLICY_BASED_ON_PEAK){
+         double mintp = bid - (sl - bid) * Rr;
+         double tp = find_nearest_unbroken_peak_price(false, 0, mintp);
+         if(tp<0) return;
+         tp = tp + sl_points_offset*_Point;
+      }else if(tp_policy == TP_POLICY_BASED_ON_FIXED_RR){
+         tp = bid - (sl - bid) * Rr;
+      }
       sl = NormalizeDouble(sl ,_Digits);
       tp = NormalizeDouble(tp, _Digits);
-      if(sl<bid) return;
+      double _Rr = (bid-tp)/(sl-bid);
       double lot_size = calculate_lot_size((sl-bid)/_Point, risk_percent);
-      trade.Sell(lot_size, _Symbol, bid, sl, tp);      
+      trade.Sell(lot_size, _Symbol, bid, sl, tp);    
    }
 
 }
@@ -108,20 +133,20 @@ double calculate_lot_size(double slpoints, double risk_percent){
 }
 
 
-double find_nearest_peak_price(bool findtop){
+double find_nearest_unbroken_peak_price(bool findtop, double higherthan=0, double lowerthan=100000000){
    double peaks[], broken[], high[], low[];
    ArraySetAsSeries(peaks, true);
    ArraySetAsSeries(broken, true);
    ArraySetAsSeries(high, true);
    ArraySetAsSeries(low, true);
-   int ncandles = 200;
+   int ncandles = 2000;
    CopyBuffer(ind_handle1, PEAK_BUFFER, 1, ncandles, peaks);
    CopyBuffer(ind_handle1, PEAK_BROKEN_BUFFER, 1, ncandles, broken);
    CopyBuffer(ind_handle1, HIGH_BUFFER, 1, ncandles, high);
    CopyBuffer(ind_handle1, LOW_BUFFER, 1, ncandles, low);
    for(int i=0;i<ncandles;i++){
-      if(peaks[i]==1 && broken[i]==0 && findtop) return high[i];
-      if(peaks[i]==2 && broken[i]==0 && !findtop) return low[i];
+      if(peaks[i]==1 && broken[i]==0 && findtop && high[i]>=higherthan && high[i]<=lowerthan) return high[i];
+      if(peaks[i]==2 && broken[i]==0 && !findtop && low[i]>=higherthan && low[i]<=lowerthan) return low[i];
    }
    return -1;   
 }
