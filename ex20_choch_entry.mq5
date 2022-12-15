@@ -54,8 +54,8 @@ int OnInit()
    trade.SetExpertMagicNumber(Magic);
    if(use_costume_timeframe) tf = costume_timeframe;
    else tf = _Period;
-   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak);
-   ind_handle2 = iCustom(_Symbol, higher_timeframe, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak);
+   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, 1);
+   ind_handle2 = iCustom(_Symbol, higher_timeframe, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, 1);
    ChartIndicatorAdd(0, 0, ind_handle1);
    ChartIndicatorAdd(0, 0, ind_handle2);
    return(INIT_SUCCEEDED);
@@ -125,7 +125,7 @@ void OnTick()
 
 
 double calculate_lot_size(double slpoints, double risk_percent){
-   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double balance = MathMin(1000,AccountInfoDouble(ACCOUNT_BALANCE));
    double riskusd = risk_percent * balance / 100;
    double lot = riskusd/slpoints;
    lot = NormalizeDouble(lot, 2);

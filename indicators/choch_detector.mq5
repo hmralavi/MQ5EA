@@ -7,6 +7,7 @@
 #property indicator_label1    "Open;High;Low;Close"
 
 input int n_candles_peak = 6;
+input int static_dynamic_support_resistant = 1;  // set 1 for static and 2 for dynamic support resistant
 
 //--- indicator buffers
 double ExtOBuffer[];
@@ -104,12 +105,44 @@ int OnCalculate(const int rates_total,
       for(int j=npeaks-1;j>=0;j--){
          int pindex = PeakIndex[j];
          if(i<pindex) continue;
-         if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0 && close[i]>high[pindex]){
-            ExtTrendbuffer[i] = 1;
-            ExtPeakBrokenBuffer[pindex] = 1;          
-         }else if(ExtPeakBuffer[pindex]==2 && ExtPeakBrokenBuffer[pindex]==0 && close[i]<low[pindex]){
-            ExtTrendbuffer[i] = 2;
-            ExtPeakBrokenBuffer[pindex] = 1;  
+         
+         if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0){
+            bool trend_line_broken = false;
+            if(static_dynamic_support_resistant==1){
+               trend_line_broken = close[i]>high[pindex];
+            }else if(static_dynamic_support_resistant==2){
+               int pindex_before = -1;
+               for(int k=j-1;k>=MathMax(0,j-10);k--){
+                  if(ExtPeakBuffer[PeakIndex[k]]==1 && high[PeakIndex[k]]>high[pindex]){
+                     pindex_before = PeakIndex[k];
+                     break;
+                  }
+               }
+               if(pindex_before>0) trend_line_broken = close[i]>calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
+            }
+            if(trend_line_broken){
+               ExtTrendbuffer[i] = 1;
+               ExtPeakBrokenBuffer[pindex] = 1;          
+            }
+            
+         }else if(ExtPeakBuffer[pindex]==2 && ExtPeakBrokenBuffer[pindex]==0){
+            bool trend_line_broken = false;
+            if(static_dynamic_support_resistant==1){
+               trend_line_broken = close[i]<low[pindex];
+            }else if(static_dynamic_support_resistant==2){
+               int pindex_before = -1;
+               for(int k=j-1;k>=MathMax(0,j-10);k--){
+                  if(ExtPeakBuffer[PeakIndex[k]]==2 && low[PeakIndex[k]]<low[pindex]){
+                     pindex_before = PeakIndex[k];
+                     break;
+                  }
+               }               
+               if(pindex_before>0) trend_line_broken = close[i]<calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);           
+            }
+            if(trend_line_broken){
+               ExtTrendbuffer[i] = 2;
+               ExtPeakBrokenBuffer[pindex] = 1;          
+            }
          }
       }
       ExtColorBuffer[i] = 2*ExtTrendbuffer[i];
@@ -119,3 +152,9 @@ int OnCalculate(const int rates_total,
    return(rates_total);
 }
 //+------------------------------------------------------------------+
+
+
+double calc_trend_line_price(double p1, double i1, double p2, double i2, double i3){
+   double p3 = p1+(p1-p2)*(i3-i1)/(i1-i2);
+   return p3;
+}
