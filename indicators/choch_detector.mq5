@@ -119,7 +119,7 @@ int OnCalculate(const int rates_total,
       int npeaks = ArraySize(PeakIndex);     
       for(int j=0;j<npeaks;j++){
          int pindex = PeakIndex[j];
-         if(i<pindex) continue;
+         if(i-pindex<n_candles_peak || i-pindex>n_candles_peak*6) continue;
          
          if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0){
             bool trend_line_broken = false;
@@ -127,13 +127,14 @@ int OnCalculate(const int rates_total,
                trend_line_broken = close[i]>high[pindex];
             }else if(static_dynamic_support_resistant==2){
                int pindex_before = -1;
-               for(int k=j-1;k>=MathMax(0,j-10);k--){
+               for(int k=j-1;k>=MathMax(0,j-6);k--){
                   if(ExtPeakBuffer[PeakIndex[k]]==1 && high[PeakIndex[k]]>high[pindex]){
                      pindex_before = PeakIndex[k];
                      break;
                   }
                }
                if(pindex_before>0) trend_line_broken = close[i]>calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
+               //if(trend_line_broken) ExtPeakBrokenBuffer[pindex_before] = 1;   
             }
             if(trend_line_broken){
                ExtTrendbuffer[i] = 1;
@@ -146,13 +147,14 @@ int OnCalculate(const int rates_total,
                trend_line_broken = close[i]<low[pindex];
             }else if(static_dynamic_support_resistant==2){
                int pindex_before = -1;
-               for(int k=j-1;k>=MathMax(0,j-10);k--){
+               for(int k=j-1;k>=MathMax(0,j-6);k--){
                   if(ExtPeakBuffer[PeakIndex[k]]==2 && low[PeakIndex[k]]<low[pindex]){
                      pindex_before = PeakIndex[k];
                      break;
                   }
                }               
                if(pindex_before>0) trend_line_broken = close[i]<calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);           
+               //if(trend_line_broken) ExtPeakBrokenBuffer[pindex_before] = 1;   
             }
             if(trend_line_broken){
                ExtTrendbuffer[i] = 2;
