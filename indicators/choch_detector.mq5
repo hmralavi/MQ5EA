@@ -73,6 +73,7 @@ int OnCalculate(const int rates_total,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]){
+   int start;                
    if(prev_calculated==0){
       ExtLBuffer[0]=low[0];
       ExtHBuffer[0]=high[0];
@@ -82,45 +83,45 @@ int OnCalculate(const int rates_total,
       ExtTrendbuffer[0]=0;
       ExtPeakBuffer[0]=0;
       ExtPeakBrokenBuffer[0]=0;
-   }
-   //--- detect peaks
-   for(int i=MathMax(prev_calculated-n_candles_peak-1,1); i<rates_total-n_candles_peak-1 && !IsStopped(); i++){
-      ExtPeakBuffer[i] = 0;      
-      if(i>=n_candles_peak){
-         bool top = true;
-         bool bottom = true;
-         for(int j=i-n_candles_peak;j<=i+n_candles_peak;j++){
-            if(i==j) continue;
-            top = top && high[i]>high[j];
-            bottom = bottom && low[i]<low[j];
-         }
-         if(top) ExtPeakBuffer[i] = 1;
-         if(bottom) ExtPeakBuffer[i] = 2;
-         ExtPeakBrokenBuffer[i] = 0;
-         if(top || bottom){
-            int npeaks = ArraySize(PeakIndex);
-            ArrayResize(PeakIndex, npeaks+1);
-            PeakIndex[npeaks] = i;    
-            ExtColorBuffer[i] = ExtTrendbuffer[i]*2 + 1;        
-         }
-      }
-   }
-   
-   //--- detect chock
-   for(int i=MathMax(prev_calculated-2,1); i<rates_total && !IsStopped(); i++){
+      start = 1;
+   }else{
+      start = prev_calculated - 2;
+   } 
 
+   for(int i=start; i<rates_total && !IsStopped(); i++){
+      // update candle price
       ExtLBuffer[i]=low[i];
       ExtHBuffer[i]=high[i];
       ExtOBuffer[i]=open[i];
-      ExtCBuffer[i]=close[i];      
-      if(i==rates_total-1) continue;
-      if(ExtTrendbuffer[i]>0) continue;
+      ExtCBuffer[i]=close[i];     
+      if(i==rates_total-1) continue;  // dont further analyze the unclosed candle
+      
+      //--detect peak
+      ExtPeakBuffer[i] = 0; 
+      ExtPeakBrokenBuffer[i] = 0;
+      if(i>=2*n_candles_peak){
+         int jpeak = i-n_candles_peak;
+         bool top = true;
+         bool bottom = true;
+         for(int j=jpeak-n_candles_peak;j<=jpeak+n_candles_peak;j++){
+            if(j==jpeak) continue;
+            top = top && high[jpeak]>high[j];
+            bottom = bottom && low[jpeak]<low[j];
+         }
+         if(top) ExtPeakBuffer[jpeak] = 1;
+         if(bottom) ExtPeakBuffer[jpeak] = 2;
+         if(top || bottom){
+            int npeaks = ArraySize(PeakIndex);
+            ArrayResize(PeakIndex, npeaks+1);
+            PeakIndex[npeaks] = jpeak;    
+            ExtColorBuffer[jpeak] = ExtTrendbuffer[jpeak]*2 + 1;        
+         }         
+      }
+      //--detect choch
       ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
       int npeaks = ArraySize(PeakIndex);     
       for(int j=0;j<npeaks;j++){
-         int pindex = PeakIndex[j];
-         if(i-pindex<n_candles_peak || i-pindex>n_candles_peak*6) continue;
-         
+         int pindex = PeakIndex[j];        
          if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0){
             bool trend_line_broken = false;
             if(static_dynamic_support_resistant==1){
@@ -134,7 +135,6 @@ int OnCalculate(const int rates_total,
                   }
                }
                if(pindex_before>0) trend_line_broken = close[i]>calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
-               //if(trend_line_broken) ExtPeakBrokenBuffer[pindex_before] = 1;   
             }
             if(trend_line_broken){
                ExtTrendbuffer[i] = 1;
@@ -154,7 +154,6 @@ int OnCalculate(const int rates_total,
                   }
                }               
                if(pindex_before>0) trend_line_broken = close[i]<calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);           
-               //if(trend_line_broken) ExtPeakBrokenBuffer[pindex_before] = 1;   
             }
             if(trend_line_broken){
                ExtTrendbuffer[i] = 2;
@@ -163,8 +162,7 @@ int OnCalculate(const int rates_total,
          }
       }
       ExtColorBuffer[i] = 2*ExtTrendbuffer[i];
-      if(ExtPeakBuffer[i]>0) ExtColorBuffer[i]++; 
-      
+            
       //--- update win rate
       int ntrendchanged = ArraySize(TrendChangedIndex);
       if(ExtTrendbuffer[i] != ExtTrendbuffer[i-1]){
@@ -175,7 +173,7 @@ int OnCalculate(const int rates_total,
       double wins = 0;
       double profit_points = 0;
       for(int k=ntrendchanged-n_trend_change_win_rate-1;k<ntrendchanged-1;k++){
-         if(k<0) break;
+         if(k<0) continue;
          int startindex = TrendChangedIndex[k];
          int endindex = TrendChangedIndex[k+1];
          if(close[endindex]>close[startindex] && ExtTrendbuffer[startindex]==1) wins++;
