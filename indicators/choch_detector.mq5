@@ -117,7 +117,7 @@ int OnCalculate(const int rates_total,
       if(ExtTrendbuffer[i]>0) continue;
       ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
       int npeaks = ArraySize(PeakIndex);     
-      for(int j=npeaks-1;j>=0;j--){
+      for(int j=0;j<npeaks;j++){
          int pindex = PeakIndex[j];
          if(i<pindex) continue;
          
@@ -152,7 +152,7 @@ int OnCalculate(const int rates_total,
                      break;
                   }
                }               
-               if(pindex_before>0) trend_line_broken = close[i]<calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);           
+               if(pindex_before>0) trend_line_broken = close[i]<calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);           
             }
             if(trend_line_broken){
                ExtTrendbuffer[i] = 2;
