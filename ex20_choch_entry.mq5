@@ -45,9 +45,9 @@ ENUM_TIMEFRAMES tf;
 
 #define HIGH_BUFFER 1
 #define LOW_BUFFER 2
-#define TREND_BUFFER 5
-#define PEAK_BUFFER 6
-#define PEAK_BROKEN_BUFFER 7
+#define TREND_BUFFER 6
+#define PEAK_BUFFER 7
+#define PEAK_BROKEN_BUFFER 8
 
 int OnInit()
 {
