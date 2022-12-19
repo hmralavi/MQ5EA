@@ -170,7 +170,7 @@ int OnCalculate(const int rates_total,
          TrendChangedIndex[ntrendchanged] = i;    
          ntrendchanged++;   
       }
-      int wins = 0;
+      double wins = 0;
       double profit_points = 0;
       for(int k=ntrendchanged-n_trend_change_win_rate-1;k<ntrendchanged-1;k++){
          if(k<0) break;
