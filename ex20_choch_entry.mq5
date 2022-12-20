@@ -125,15 +125,6 @@ void OnTick()
 }
 
 
-double calculate_lot_size(double slpoints, double risk_percent){
-   double balance = MathMin(1000,AccountInfoDouble(ACCOUNT_BALANCE));
-   double riskusd = risk_percent * balance / 100;
-   double lot = riskusd/slpoints;
-   lot = NormalizeDouble(lot, 2);
-   return lot;
-}
-
-
 double find_nearest_unbroken_peak_price(bool findtop, double higherthan=0, double lowerthan=100000000){
    double peaks[], broken[], high[], low[];
    ArraySetAsSeries(peaks, true);

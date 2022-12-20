@@ -209,11 +209,3 @@ bool calculate_market_low_high(){
    MH = mh;
    return true;
 }
-
-double calculate_lot_size(double slpoints, double risk_percent){
-   double balance = MathMin(1000,AccountInfoDouble(ACCOUNT_BALANCE));
-   double riskusd = risk_percent * balance / 100;
-   double lot = riskusd/slpoints;
-   lot = NormalizeDouble(lot, 2);
-   return lot;
-}
