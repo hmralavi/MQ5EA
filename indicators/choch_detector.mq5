@@ -121,8 +121,9 @@ int OnCalculate(const int rates_total,
       ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
       int npeaks = ArraySize(PeakIndex);     
       for(int j=0;j<npeaks;j++){
-         int pindex = PeakIndex[j];        
-         if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0){
+         int pindex = PeakIndex[j];   
+         if(ExtPeakBrokenBuffer[pindex]==1) continue;     
+         if(ExtPeakBuffer[pindex]==1){
             bool trend_line_broken = false;
             bool trend_line_broken1 = false;
             bool trend_line_broken2 = false;
@@ -131,7 +132,10 @@ int OnCalculate(const int rates_total,
             for(int k=j-1;k>=0;k--){
                if(ExtPeakBuffer[PeakIndex[k]]==1 && high[PeakIndex[k]]>high[pindex]){
                   bool trend_change = false;
-                  for(int m=PeakIndex[k]+1;m<pindex;m++) trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+                  for(int m=PeakIndex[k]+1;m<i;m++){
+                     trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+                     if(trend_change) break;
+                  }
                   if(trend_change) break;
                   pindex_before = PeakIndex[k];
                   break;
@@ -146,7 +150,7 @@ int OnCalculate(const int rates_total,
                ExtPeakBrokenBuffer[pindex] = 1;          
             }
             
-         }else if(ExtPeakBuffer[pindex]==2 && ExtPeakBrokenBuffer[pindex]==0){
+         }else if(ExtPeakBuffer[pindex]==2){
             bool trend_line_broken = false;
             bool trend_line_broken1 = false;
             bool trend_line_broken2 = false;            
@@ -155,7 +159,10 @@ int OnCalculate(const int rates_total,
             for(int k=j-1;k>=0;k--){
                if(ExtPeakBuffer[PeakIndex[k]]==2 && low[PeakIndex[k]]<low[pindex]){
                   bool trend_change = false;
-                  for(int m=PeakIndex[k]+1;m<pindex;m++) trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+                  for(int m=PeakIndex[k]+1;m<i;m++){
+                     trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+                     if(trend_change) break;
+                  }
                   if(trend_change) break;
                   pindex_before = PeakIndex[k];
                   break;
