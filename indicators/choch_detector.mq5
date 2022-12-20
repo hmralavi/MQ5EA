@@ -13,7 +13,7 @@
 #property indicator_label3    "ProfitPoints"
 
 input int n_candles_peak = 6;
-input int static_dynamic_support_resistant = 0;  // set 1 for static, 2 for dynamic support resistant, set 0 for both
+input int static_dynamic_support_resistant = 0;  // set 0 for both static and trendline, set 1 for static only, set 2 for trendline only
 input int n_trend_change_win_rate = 10;
 
 //--- indicator buffers
@@ -128,8 +128,11 @@ int OnCalculate(const int rates_total,
             bool trend_line_broken2 = false;
             trend_line_broken1 = close[i]>high[pindex];            
             int pindex_before = -1;
-            for(int k=j-1;k>=MathMax(0,j-6);k--){
+            for(int k=j-1;k>=0;k--){
                if(ExtPeakBuffer[PeakIndex[k]]==1 && high[PeakIndex[k]]>high[pindex]){
+                  bool trend_change = false;
+                  for(int m=PeakIndex[k]+1;m<pindex;m++) trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+                  if(trend_change) break;
                   pindex_before = PeakIndex[k];
                   break;
                }
@@ -149,8 +152,11 @@ int OnCalculate(const int rates_total,
             bool trend_line_broken2 = false;            
             trend_line_broken1 = close[i]<low[pindex];
             int pindex_before = -1;
-            for(int k=j-1;k>=MathMax(0,j-6);k--){
+            for(int k=j-1;k>=0;k--){
                if(ExtPeakBuffer[PeakIndex[k]]==2 && low[PeakIndex[k]]<low[pindex]){
+                  bool trend_change = false;
+                  for(int m=PeakIndex[k]+1;m<pindex;m++) trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+                  if(trend_change) break;
                   pindex_before = PeakIndex[k];
                   break;
                }
