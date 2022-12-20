@@ -13,7 +13,7 @@
 #property indicator_label3    "ProfitPoints"
 
 input int n_candles_peak = 6;
-input int static_dynamic_support_resistant = 1;  // set 1 for static and 2 for dynamic support resistant
+input int static_dynamic_support_resistant = 0;  // set 1 for static, 2 for dynamic support resistant, set 0 for both
 input int n_trend_change_win_rate = 10;
 
 //--- indicator buffers
@@ -95,7 +95,7 @@ int OnCalculate(const int rates_total,
       ExtOBuffer[i]=open[i];
       ExtCBuffer[i]=close[i];     
       if(i==rates_total-1) continue;  // dont further analyze the unclosed candle
-      
+      if(ExtTrendbuffer[i]>0) continue;
       //--detect peak
       ExtPeakBuffer[i] = 0; 
       ExtPeakBrokenBuffer[i] = 0;
@@ -124,18 +124,20 @@ int OnCalculate(const int rates_total,
          int pindex = PeakIndex[j];        
          if(ExtPeakBuffer[pindex]==1 && ExtPeakBrokenBuffer[pindex]==0){
             bool trend_line_broken = false;
-            if(static_dynamic_support_resistant==1){
-               trend_line_broken = close[i]>high[pindex];
-            }else if(static_dynamic_support_resistant==2){
-               int pindex_before = -1;
-               for(int k=j-1;k>=MathMax(0,j-6);k--){
-                  if(ExtPeakBuffer[PeakIndex[k]]==1 && high[PeakIndex[k]]>high[pindex]){
-                     pindex_before = PeakIndex[k];
-                     break;
-                  }
+            bool trend_line_broken1 = false;
+            bool trend_line_broken2 = false;
+            trend_line_broken1 = close[i]>high[pindex];            
+            int pindex_before = -1;
+            for(int k=j-1;k>=MathMax(0,j-6);k--){
+               if(ExtPeakBuffer[PeakIndex[k]]==1 && high[PeakIndex[k]]>high[pindex]){
+                  pindex_before = PeakIndex[k];
+                  break;
                }
-               if(pindex_before>0) trend_line_broken = close[i]>calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
             }
+            if(pindex_before>0) trend_line_broken2 = close[i]>calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
+            if(static_dynamic_support_resistant==0) trend_line_broken = trend_line_broken1 || trend_line_broken2;
+            if(static_dynamic_support_resistant==1) trend_line_broken = trend_line_broken1;
+            if(static_dynamic_support_resistant==2) trend_line_broken = trend_line_broken2;
             if(trend_line_broken){
                ExtTrendbuffer[i] = 1;
                ExtPeakBrokenBuffer[pindex] = 1;          
@@ -143,18 +145,20 @@ int OnCalculate(const int rates_total,
             
          }else if(ExtPeakBuffer[pindex]==2 && ExtPeakBrokenBuffer[pindex]==0){
             bool trend_line_broken = false;
-            if(static_dynamic_support_resistant==1){
-               trend_line_broken = close[i]<low[pindex];
-            }else if(static_dynamic_support_resistant==2){
-               int pindex_before = -1;
-               for(int k=j-1;k>=MathMax(0,j-6);k--){
-                  if(ExtPeakBuffer[PeakIndex[k]]==2 && low[PeakIndex[k]]<low[pindex]){
-                     pindex_before = PeakIndex[k];
-                     break;
-                  }
-               }               
-               if(pindex_before>0) trend_line_broken = close[i]<calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);           
-            }
+            bool trend_line_broken1 = false;
+            bool trend_line_broken2 = false;            
+            trend_line_broken1 = close[i]<low[pindex];
+            int pindex_before = -1;
+            for(int k=j-1;k>=MathMax(0,j-6);k--){
+               if(ExtPeakBuffer[PeakIndex[k]]==2 && low[PeakIndex[k]]<low[pindex]){
+                  pindex_before = PeakIndex[k];
+                  break;
+               }
+            }               
+            if(pindex_before>0) trend_line_broken2 = close[i]<calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);           
+            if(static_dynamic_support_resistant==0) trend_line_broken = trend_line_broken1 || trend_line_broken2;
+            if(static_dynamic_support_resistant==1) trend_line_broken = trend_line_broken1;
+            if(static_dynamic_support_resistant==2) trend_line_broken = trend_line_broken2;
             if(trend_line_broken){
                ExtTrendbuffer[i] = 2;
                ExtPeakBrokenBuffer[pindex] = 1;          

@@ -28,6 +28,7 @@ input ENUM_TIMEFRAMES costume_timeframe = PERIOD_H1;
 input bool confirm_with_higher_timeframe = true;
 input ENUM_TIMEFRAMES higher_timeframe = PERIOD_D1;
 input int n_candles_peak = 6;
+input int static_or_dynamic_trendline = 0;  // set 1 for static or 2 for trendline, set 0 for both
 
 input group "Position settings"
 input double sl_points_offset = 100;  // sl points offset from peak
@@ -54,8 +55,8 @@ int OnInit()
    trade.SetExpertMagicNumber(Magic);
    if(use_costume_timeframe) tf = costume_timeframe;
    else tf = _Period;
-   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, 1);
-   ind_handle2 = iCustom(_Symbol, higher_timeframe, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, 1);
+   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
+   ind_handle2 = iCustom(_Symbol, higher_timeframe, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
    ChartIndicatorAdd(0, 0, ind_handle1);
    ChartIndicatorAdd(0, 0, ind_handle2);
    return(INIT_SUCCEEDED);
