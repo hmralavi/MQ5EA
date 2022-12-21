@@ -13,6 +13,13 @@ differences:
 
 #include <../Experts/mq5ea/mytools.mqh>
 
+
+enum ENUM_EXIT_POLICY{
+   EXIT_POLICY_BREAKEVEN = 0,  // Breakeven if in loss/Instant exit if in profit
+   EXIT_POLICY_INSTANT = 1  // instant exit anyway
+};
+
+
 input group "Time"
 input bool use_chart_timeframe = false;
 input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M15;
@@ -29,6 +36,7 @@ input group "Position"
 input bool instant_entry = true;
 input double order_price_ratio = 0.5;  // order price ratio. 0 close to broken edge. 1 on the other side of the channel.
 input bool close_only_half_size_on_tp = false;
+input ENUM_EXIT_POLICY after_terminate_time_exit_policy = EXIT_POLICY_BREAKEVEN;  // how to close open positions when market_terminate time triggers?
 input group "Trailing"
 input bool trailing_stoploss = false;
 input int atr_period = 100;
@@ -72,8 +80,8 @@ void OnTick()
    new_candle = IsNewCandle(tf);
    
    if(TimeCurrent() >= MT || TimeCurrent()<MO){
-      CloseAllPositions(trade);
       DeleteAllOrders(trade);
+      run_exit_policy();
       return;
       
    }
@@ -123,20 +131,20 @@ void OnTick()
       double sl = p1_ - sl_offset_points*_Point;
       double tp = p + Rr * (p-sl);
       double lot = calculate_lot_size((p-sl)/_Point, risk);
-      double lot_ = NormalizeDouble(lot/2, 2);
+      double lot_ = NormalizeDouble(floor(100*lot/2)/100, 2);
       if(instant_entry){
          if(close_only_half_size_on_tp){
             trade.Buy(lot_, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
             trade.Buy(lot_, _Symbol, p, sl, 0, DoubleToString(sl, _Digits));
          }else{
-            trade.Buy(2*lot_, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
+            trade.Buy(lot, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
          }
       }else{
          if(close_only_half_size_on_tp){
             trade.BuyLimit(lot_, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
             trade.BuyLimit(lot_, p, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
          }else{
-            trade.BuyLimit(2*lot_, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+            trade.BuyLimit(lot, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
          }
       }
 
@@ -149,20 +157,20 @@ void OnTick()
       double sl = p1_ + sl_offset_points*_Point;
       double tp = p - Rr * (sl-p);
       double lot = calculate_lot_size((sl-p)/_Point, risk);
-      double lot_ = NormalizeDouble(lot/2, 2);
+      double lot_ = NormalizeDouble(floor(100*lot/2)/100, 2);
       if(instant_entry){
          if(close_only_half_size_on_tp){
             trade.Sell(lot_, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
             trade.Sell(lot_, _Symbol, p, sl, 0, DoubleToString(sl, _Digits));
          }else{
-            trade.Sell(2*lot_, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
+            trade.Sell(lot, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
          }
       }else{
          if(close_only_half_size_on_tp){
             trade.SellLimit(lot_, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
             trade.SellLimit(lot_, p, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
          }else{
-            trade.Sell(2*lot_, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
+            trade.Sell(lot, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
          }
       }
    }
@@ -208,4 +216,36 @@ bool calculate_market_low_high(){
    ML = ml;
    MH = mh;
    return true;
+}
+
+
+void run_exit_policy(void){
+   if(after_terminate_time_exit_policy==EXIT_POLICY_INSTANT){
+      CloseAllPositions(trade);
+      return;
+      
+   }else if(after_terminate_time_exit_policy==EXIT_POLICY_BREAKEVEN){
+      ulong pos_tickets[];
+      GetMyPositionsTickets(Magic, pos_tickets);
+      int npos = ArraySize(pos_tickets);  
+      for(int ipos=0;ipos<npos;ipos++){
+         PositionSelectByTicket(pos_tickets[ipos]);
+         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         double current_sl = PositionGetDouble(POSITION_SL);
+         double current_tp = PositionGetDouble(POSITION_TP);
+         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+         if(pos_type==POSITION_TYPE_BUY){
+            double bidprice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+            double profit_points = (bidprice-open_price)/_Point;
+            if(profit_points>=0) trade.PositionClose(pos_tickets[ipos]);
+            else trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
+         }else if(pos_type==POSITION_TYPE_SELL){
+            double askprice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+            double profit_points = (open_price-askprice)/_Point;
+            if(profit_points>=0) trade.PositionClose(pos_tickets[ipos]);
+            else trade.PositionModify(pos_tickets[ipos], current_sl, open_price);              
+         }
+      }
+      return;
+   }
 }
