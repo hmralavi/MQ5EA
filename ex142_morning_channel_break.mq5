@@ -30,7 +30,7 @@ input int market_terminate_hour = 20;
 input int market_terminate_minute = 0;
 input group "Risk"
 input double sl_offset_points = 50;  // sl offset points channel edge
-input double risk = 2;  // risk %
+input double risk = 10;  // risk usd per trade
 input double Rr = 2;  // reward/risk ratio
 input group "Position"
 input bool instant_entry = true;

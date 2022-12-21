@@ -15,7 +15,7 @@ input int NCandlesSearch = 200;
 input int NCandlesPeak = 6;
 
 input group "Money Management"
-input double risk = 2;  // risk %
+input double risk = 10;  // risk usd per trade
 input int sl_points_offset = 50;
 input double Rr = 4.5;  // reward/risk ratio
 

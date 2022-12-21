@@ -32,7 +32,7 @@ input int static_or_dynamic_trendline = 0;  // set 1 for static or 2 for trendli
 
 input group "Position settings"
 input double sl_points_offset = 100;  // sl points offset from peak
-input double risk_percent = 2;  // risk percent
+input double risk = 10;  // risk usd per trade
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
 input ENUM_TP_POLICY tp_policy = TP_POLICY_BASED_ON_PEAK;
 input double Rr = 2;  // fixed(minimum) reward/risk ratio 
@@ -98,7 +98,7 @@ void OnTick()
       sl = NormalizeDouble(sl ,_Digits);
       tp = NormalizeDouble(tp, _Digits);
       double _Rr = (tp-ask)/(ask-sl);
-      double lot_size = calculate_lot_size((ask-sl)/_Point, risk_percent);
+      double lot_size = calculate_lot_size((ask-sl)/_Point, risk);
       trade.Buy(lot_size, _Symbol, ask, sl, tp);
    
    }else if(trend[0]==2 && trend[1]==1 && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
@@ -118,7 +118,7 @@ void OnTick()
       sl = NormalizeDouble(sl ,_Digits);
       tp = NormalizeDouble(tp, _Digits);
       double _Rr = (bid-tp)/(sl-bid);
-      double lot_size = calculate_lot_size((sl-bid)/_Point, risk_percent);
+      double lot_size = calculate_lot_size((sl-bid)/_Point, risk);
       trade.Sell(lot_size, _Symbol, bid, sl, tp);    
    }
 

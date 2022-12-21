@@ -316,11 +316,9 @@ bool is_session_time_allowed(string session_start_time, string session_end_time)
 }
 
 
-double calculate_lot_size(double slpoints, double risk_percent){
+double calculate_lot_size(double slpoints, double riskusd){
    double multiplier = 1;
    if(_Symbol=="XAUUSD" || _Symbol=="XAGUSD") multiplier = 10;
-   double balance = MathMin(1000,AccountInfoDouble(ACCOUNT_BALANCE));
-   double riskusd = risk_percent * balance / 100;
    double tick_val = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double lot = riskusd/(tick_val*multiplier*slpoints);
    lot = floor(lot*100)/100;

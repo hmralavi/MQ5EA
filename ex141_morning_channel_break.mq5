@@ -29,7 +29,7 @@ input int market_terminate_hour = 21;
 input int market_terminate_minute = 0;
 input group "Risk"
 input double sl_offset_points = 50;  // sl offset points channel edge
-input double risk = 2;  // risk %
+input double risk = 10;  // risk usd per trade
 input double daily_loss_limit = -100;  // daily loss limit ($)
 input double Rr = 3;  // reward/risk ratio
 input group "Position"
