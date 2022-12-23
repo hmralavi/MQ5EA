@@ -204,8 +204,10 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
 bool calculate_market_low_high(){
    MqlRates mrate[];
    ArraySetAsSeries(mrate, true);
-   int st = iBarShift(_Symbol, tf, MC)+1;
-   int en = iBarShift(_Symbol, tf, MO);
+   int st = iBarShift(_Symbol, tf, MC, true);
+   int en = iBarShift(_Symbol, tf, MO, true);
+   if(st<0 || en<0) return false;
+   st++;
    CopyRates(_Symbol,tf,st,en-st+1,mrate);
    MqlRates ml = mrate[0];
    MqlRates mh = mrate[0];
