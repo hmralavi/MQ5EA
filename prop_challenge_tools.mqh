@@ -1,3 +1,5 @@
+#include <../Experts/mq5ea/mytools.mqh>
+
 class PeriodData
 {
 public:
@@ -88,7 +90,6 @@ double PropChallengeCriteria::get_results(void){
    for(int i=0;i<ndata;i++){
       PeriodData data = period_data[i];
       if((data.balance_max-data.balance_start)>=min_profit_usd && (data.balance_start-data.equity_min)<=max_drawdown_usd) score++;
-      else score--;
    }
    score /= ndata;
    return score;
