@@ -22,6 +22,15 @@ enum ENUM_MONTH{
    MONTH_DEC=12  // Dec
 };
 
+enum ENUM_WEEKDAY{
+   WEEKDAY_ALL = 0, // All
+   WEEKDAY_MON = 1, // Mon 
+   WEEKDAY_TUE = 2, // Tue
+   WEEKDAY_WED = 3, // Wed
+   WEEKDAY_THU = 4, // Thu
+   WEEKDAY_FRI = 5 // Fri
+};
+
 struct PeakProperties{
   MqlRates main_candle;
   int shift;

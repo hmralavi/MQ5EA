@@ -12,13 +12,13 @@ differences:
 
 
 #include <../Experts/mq5ea/mytools.mqh>
+#include <../Experts/mq5ea/prop_challenge_tools.mqh>
 
 
 enum ENUM_EXIT_POLICY{
    EXIT_POLICY_BREAKEVEN = 0,  // Breakeven if in loss/Instant exit if in profit
    EXIT_POLICY_INSTANT = 1  // instant exit anyway
 };
-
 
 input group "Time"
 input bool use_chart_timeframe = false;
@@ -43,6 +43,12 @@ input bool trailing_stoploss = false;
 input int atr_period = 100;
 input double atr_channel_deviation = 2;
 input int Magic = 142;  // EA's magic number
+input group "Optimization criteria for prop challenge"
+input bool prop_challenge_criteria_enabled = false; // Enabled?
+input ENUM_MONTH prop_challenge_period_month = MONTH_ALL; // Optimize for which month?
+input double prop_challenge_min_profit_usd = 800; // Min profit desired(usd);
+input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(usd);
+
 
 CTrade trade;
 string _MO,_MT;
@@ -51,6 +57,7 @@ MqlRates ML, MH; // market low, high
 bool market_lh_calculated = false;
 int atr_handle;
 bool new_candle = false;
+PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_period_month);
 
 #define MO StringToTime(_MO)  // market open time
 #define MC MO + market_duration_minutes*60  // market close time
@@ -77,7 +84,9 @@ void OnDeinit(const int reason){
 }
 
 void OnTick()
-{      
+{  
+   if(prop_challenge_criteria_enabled) prop_challenge_criteria.update();
+       
    new_candle = IsNewCandle(tf);
    
    if(TimeCurrent() >= MT || TimeCurrent()<MO){
@@ -258,4 +267,9 @@ void run_exit_policy(void){
       }
       return;
    }
+}
+
+
+double OnTester(void){
+   return prop_challenge_criteria.get_results();
 }
