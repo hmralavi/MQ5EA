@@ -28,6 +28,7 @@ input int market_open_minute = 0;
 input int market_duration_minutes = 90;
 input int market_terminate_hour = 20;
 input int market_terminate_minute = 0;
+input ENUM_MONTH trading_month=MONTH_ALL;  // trade only in this month
 input group "Risk"
 input double sl_offset_points = 50;  // sl offset points channel edge
 input double risk = 10;  // risk usd per trade
@@ -85,6 +86,13 @@ void OnTick()
       return;
       
    }
+   
+   if(trading_month>0){
+      MqlDateTime current_date;
+      TimeToStruct(TimeCurrent(), current_date);
+      if(current_date.mon != trading_month) return;
+   }
+   
    if(TimeCurrent() < MC){
       market_lh_calculated = false;
       return;

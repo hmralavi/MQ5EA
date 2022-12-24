@@ -6,6 +6,22 @@ enum ENUM_MARKET_TREND_TYPE{
    MARKET_TREND_BEARISH=2
 };
 
+enum ENUM_MONTH{
+   MONTH_ALL=0, // All
+   MONTH_JAN=1, // Jan
+   MONTH_FEB=2, // Feb
+   MONTH_MAR=3, // Mar
+   MONTH_APR=4, // Apr
+   MONTH_MAY=5, // May
+   MONTH_JUN=6, // Jun
+   MONTH_JUL=7, // Jul
+   MONTH_AUG=8, // Aug
+   MONTH_SEP=9, // Sep
+   MONTH_OCT=10, // Oct
+   MONTH_NOV=11, // Nov
+   MONTH_DEC=12  // Dec
+};
+
 struct PeakProperties{
   MqlRates main_candle;
   int shift;
