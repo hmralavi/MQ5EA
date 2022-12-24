@@ -29,6 +29,8 @@ public:
    void PropChallengeCriteria(void);
    void PropChallengeCriteria(double min_profit_usd, double max_drawdown_usd, ENUM_MONTH period_month);
    void update(void);
+   bool is_period_passed(const PeriodData& pdata);
+   bool is_current_period_passed(void);
    double get_results(void);
 };
 
@@ -84,12 +86,28 @@ void PropChallengeCriteria::update(void){
    }
 }
 
+bool PropChallengeCriteria::is_period_passed(const PeriodData &pdata){
+   bool is_passed;
+   is_passed = (pdata.balance_max-pdata.balance_start)>=min_profit_usd && (pdata.balance_start-pdata.equity_min)<=max_drawdown_usd;
+   return is_passed;
+}
+
+bool PropChallengeCriteria::is_current_period_passed(void){
+   bool is_passed = false;
+   int ndata = ArraySize(period_data);
+   if(ndata>0){
+      PeriodData pdata = period_data[ndata-1];
+      is_passed = is_period_passed(pdata);
+   }
+   return is_passed;
+}
+
 double PropChallengeCriteria::get_results(void){
    int ndata = ArraySize(period_data);
    double score=0;
    for(int i=0;i<ndata;i++){
       PeriodData data = period_data[i];
-      if((data.balance_max-data.balance_start)>=min_profit_usd && (data.balance_start-data.equity_min)<=max_drawdown_usd) score++;
+      if(is_period_passed(data)) score++;
    }
    score /= ndata;
    return score;

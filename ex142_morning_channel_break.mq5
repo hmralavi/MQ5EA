@@ -48,6 +48,7 @@ input bool prop_challenge_criteria_enabled = false; // Enabled?
 input ENUM_MONTH prop_challenge_period_month = MONTH_ALL; // Optimize for which month?
 input double prop_challenge_min_profit_usd = 800; // Min profit desired(usd);
 input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(usd);
+input bool stop_trading_if_prop_passed = true; // stop trading if prop challenge is passed?
 
 
 CTrade trade;
@@ -79,6 +80,7 @@ int OnInit()
 }
 
 void OnDeinit(const int reason){
+   Print("Prop challenge winrate: ", NormalizeDouble(prop_challenge_criteria.get_results(), 2)*100, "%");
    IndicatorRelease(atr_handle);
    ObjectsDeleteAll(0);
 }
@@ -135,6 +137,10 @@ void OnTick()
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;  
    
    if(!new_candle) return;
+   
+   if(prop_challenge_criteria_enabled){
+      if(stop_trading_if_prop_passed && prop_challenge_criteria.is_current_period_passed()) return;
+   }
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
