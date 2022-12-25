@@ -62,7 +62,7 @@ int atr_handle;
 bool new_candle = false;
 double risk = risk_original;
 double today_profit = 0;
-PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_period_month);
+PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_period_month, Magic);
 
 #define MO StringToTime(_MO)  // market open time
 #define MC MO + market_duration_minutes*60  // market close time
