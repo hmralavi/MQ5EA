@@ -91,7 +91,13 @@ void OnDeinit(const int reason){
 
 void OnTick()
 {  
-   if(prop_challenge_criteria_enabled) prop_challenge_criteria.update();
+   if(prop_challenge_criteria_enabled){
+      prop_challenge_criteria.update();
+      if(prop_challenge_criteria.is_current_period_passed()){
+         CloseAllPositions(trade);
+         DeleteAllOrders(trade);
+      }
+   }
        
    new_candle = IsNewCandle(tf);
    
