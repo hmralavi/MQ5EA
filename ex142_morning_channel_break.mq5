@@ -195,7 +195,7 @@ void OnTick()
             trade.SellLimit(lot_, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
             trade.SellLimit(lot_, p, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
          }else{
-            trade.Sell(lot, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
+            trade.SellLimit(lot, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
          }
       }
    }
