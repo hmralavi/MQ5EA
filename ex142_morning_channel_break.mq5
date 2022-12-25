@@ -48,6 +48,7 @@ input bool prop_challenge_criteria_enabled = true; // Enabled?
 input ENUM_MONTH prop_challenge_period_month = MONTH_JAN; // Optimize for which month?
 input double prop_challenge_min_profit_usd = 800; // Min profit desired(usd);
 input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(usd);
+input double prop_challenge_daily_loss_limit = 500;  // Max loss (usd) in one day
 input double new_risk_if_prop_passed = 10; // new risk (usd) if prop challenge is passed.
 
 
@@ -59,6 +60,7 @@ bool market_lh_calculated = false;
 int atr_handle;
 bool new_candle = false;
 double risk = risk_original;
+double today_profit = 0;
 PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_period_month);
 
 #define MO StringToTime(_MO)  // market open time
@@ -107,6 +109,7 @@ void OnTick()
    
    if(TimeCurrent() < MC){
       market_lh_calculated = false;
+      today_profit = 0;
       return;
    }
 
@@ -142,6 +145,7 @@ void OnTick()
    if(prop_challenge_criteria_enabled){
       if(prop_challenge_criteria.is_current_period_passed()) risk = new_risk_if_prop_passed;
       else risk = risk_original;
+      if(today_profit-risk-10<=-prop_challenge_daily_loss_limit) return;
    }
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -211,6 +215,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
       HistorySelect(TimeCurrent()-PeriodSeconds(PERIOD_D1), TimeCurrent()+10);
       if(deal.Magic()==Magic && deal.Symbol()==_Symbol){
          if(deal.Entry()==DEAL_ENTRY_OUT){
+            today_profit += deal.Profit();
             DeleteAllOrders(trade);
             ulong pos_tickets[];
             GetMyPositionsTickets(Magic, pos_tickets);
