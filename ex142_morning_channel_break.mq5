@@ -93,7 +93,7 @@ void OnTick()
 {  
    if(prop_challenge_criteria_enabled){
       prop_challenge_criteria.update();
-      if(prop_challenge_criteria.is_current_period_passed()){
+      if(prop_challenge_criteria.is_current_period_passed() && risk>=risk_original){
          CloseAllPositions(trade);
          DeleteAllOrders(trade);
       }
