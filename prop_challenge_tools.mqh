@@ -63,6 +63,13 @@ void PeriodData::update(void){
       if(magic != magic_number) continue;
       _prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
    }
+   ulong pos_tickets[];
+   GetMyPositionsTickets(magic_number, pos_tickets);
+   int npos = ArraySize(pos_tickets);
+   for(int ipos=0;ipos<npos;ipos++){
+      PositionSelectByTicket(pos_tickets[ipos]);
+      _prof += PositionGetDouble(POSITION_PROFIT);
+   }
    profit = _prof;
    if(profit>profit_max) profit_max = profit;
    if(profit<profit_min) profit_min = profit;
