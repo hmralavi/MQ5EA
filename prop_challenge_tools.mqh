@@ -61,7 +61,7 @@ void PeriodData::update(void){
       HistoryDealSelect(dealticket);
       int magic = HistoryDealGetInteger(dealticket, DEAL_MAGIC);
       if(magic != magic_number) continue;
-      _prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT);
+      _prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
    }
    profit = _prof;
    if(profit>profit_max) profit_max = profit;
