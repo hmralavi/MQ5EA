@@ -23,20 +23,20 @@ enum ENUM_EXIT_POLICY{
 input group "Time"
 input bool use_chart_timeframe = false;
 input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M15;
-input int market_open_hour = 2;
+input int market_open_hour = 3;
 input int market_open_minute = 0;
-input int market_duration_minutes = 90;
+input int market_duration_minutes = 60;
 input int market_terminate_hour = 20;
 input int market_terminate_minute = 0;
-input ENUM_MONTH trading_month=MONTH_ALL;  // trade only in this month
+input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
 input group "Risk"
 input double sl_offset_points = 50;  // sl offset points channel edge
-input double risk = 10;  // risk usd per trade
-input double Rr = 2;  // reward/risk ratio
+input double risk_original = 200;  // risk usd per trade
+input double Rr = 3;  // reward/risk ratio
 input group "Position"
-input bool instant_entry = true;
-input double order_price_ratio = 0.5;  // order price ratio. 0 close to broken edge. 1 on the other side of the channel.
-input bool close_only_half_size_on_tp = false;
+input bool instant_entry = false;
+input double order_price_ratio = 0.0;  // order price ratio. 0 close to broken edge. 1 on the other side of the channel.
+input bool close_only_half_size_on_tp = true;
 input ENUM_EXIT_POLICY after_terminate_time_exit_policy = EXIT_POLICY_BREAKEVEN;  // how to close open positions when market_terminate time triggers?
 input group "Trailing"
 input bool trailing_stoploss = false;
@@ -44,11 +44,11 @@ input int atr_period = 100;
 input double atr_channel_deviation = 2;
 input int Magic = 142;  // EA's magic number
 input group "Optimization criteria for prop challenge"
-input bool prop_challenge_criteria_enabled = false; // Enabled?
-input ENUM_MONTH prop_challenge_period_month = MONTH_ALL; // Optimize for which month?
+input bool prop_challenge_criteria_enabled = true; // Enabled?
+input ENUM_MONTH prop_challenge_period_month = MONTH_JAN; // Optimize for which month?
 input double prop_challenge_min_profit_usd = 800; // Min profit desired(usd);
 input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(usd);
-input bool stop_trading_if_prop_passed = true; // stop trading if prop challenge is passed?
+input double new_risk_if_prop_passed = 10; // new risk (usd) if prop challenge is passed.
 
 
 CTrade trade;
@@ -58,6 +58,7 @@ MqlRates ML, MH; // market low, high
 bool market_lh_calculated = false;
 int atr_handle;
 bool new_candle = false;
+double risk = risk_original;
 PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_period_month);
 
 #define MO StringToTime(_MO)  // market open time
@@ -139,7 +140,8 @@ void OnTick()
    if(!new_candle) return;
    
    if(prop_challenge_criteria_enabled){
-      if(stop_trading_if_prop_passed && prop_challenge_criteria.is_current_period_passed()) return;
+      if(prop_challenge_criteria.is_current_period_passed()) risk = new_risk_if_prop_passed;
+      else risk = risk_original;
    }
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
