@@ -31,26 +31,27 @@ input int market_terminate_minute = 0;
 input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
 input group "Risk"
 input double sl_offset_points = 50;  // sl offset points channel edge
-input double risk_original = 200;  // risk usd per trade
+input double risk_original = 400;  // risk usd per trade
 input double Rr = 3;  // reward/risk ratio
 input group "Position"
 input bool instant_entry = false;
 input double order_price_ratio = 0.0;  // order price ratio. 0 close to broken edge. 1 on the other side of the channel.
 input bool close_only_half_size_on_tp = true;
 input ENUM_EXIT_POLICY after_terminate_time_exit_policy = EXIT_POLICY_BREAKEVEN;  // how to close open positions when market_terminate time triggers?
-input group "Trailing"
+input group "Trailing Stoploss"
 input bool trailing_stoploss = false;
 input int atr_period = 100;
 input double atr_channel_deviation = 2;
-input int Magic = 142;  // EA's magic number
 input group "Optimization criteria for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
 input ENUM_MONTH prop_challenge_period_month = MONTH_JAN; // Optimize for which month?
 input double prop_challenge_min_profit_usd = 800; // Min profit desired(usd);
 input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(usd);
-input double prop_challenge_daily_loss_limit = 500;  // Max loss (usd) in one day
+input double prop_challenge_daily_loss_limit = 450;  // Max loss (usd) in one day
 input double new_risk_if_prop_passed = 10; // new risk (usd) if prop challenge is passed.
-
+input group "EA settings"
+input string PositionComment = "";
+input int Magic = 142;  // EA's magic number
 
 CTrade trade;
 string _MO,_MT;
@@ -130,12 +131,13 @@ void OnTick()
       for(int ipos=0;ipos<npos;ipos++){
          PositionSelectByTicket(pos_tickets[ipos]);
          ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
-         double org_sl = StringToDouble(PositionGetString(POSITION_COMMENT));
          double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
          double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
+         double tp = PositionGetDouble(POSITION_TP);  
+         double tp_rr1 = MathAbs(tp-open_price)/Rr;
          double atr[1];
          CopyBuffer(atr_handle, pos_type==POSITION_TYPE_BUY?6:5, 0, 1, atr);  // buffer 5 atrhigh, buffer 6 atrlow
-         TrailingStoploss(trade, pos_tickets[ipos], MathAbs(atr[0]-curr_price)/_Point, MathAbs((org_sl-open_price)/_Point));         
+         TrailingStoploss(trade, pos_tickets[ipos], MathAbs(atr[0]-curr_price)/_Point, tp_rr1/_Point);         
       }
    }
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;  
@@ -158,22 +160,23 @@ void OnTick()
       if(instant_entry) p = ask;
       else p = order_price_ratio * (p1_-p2_) + p2_;
       double sl = p1_ - sl_offset_points*_Point;
-      double tp = p + Rr * (p-sl);
+      double tp1 = p + 1 * Rr * (p-sl);
+      double tp2 = p + 2 * Rr * (p-sl);
       double lot = calculate_lot_size((p-sl)/_Point, risk);
       double lot_ = NormalizeDouble(floor(100*lot/2)/100, 2);
       if(instant_entry){
          if(close_only_half_size_on_tp){
-            trade.Buy(lot_, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
-            trade.Buy(lot_, _Symbol, p, sl, 0, DoubleToString(sl, _Digits));
+            trade.Buy(lot_, _Symbol, p, sl, tp1, PositionComment);
+            trade.Buy(lot_, _Symbol, p, sl, tp2, PositionComment);
          }else{
-            trade.Buy(lot, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
+            trade.Buy(lot, _Symbol, p, sl, tp1, PositionComment);
          }
       }else{
          if(close_only_half_size_on_tp){
-            trade.BuyLimit(lot_, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
-            trade.BuyLimit(lot_, p, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+            trade.BuyLimit(lot_, p, _Symbol, sl, tp1, ORDER_TIME_GTC, 0, PositionComment);
+            trade.BuyLimit(lot_, p, _Symbol, sl, tp2, ORDER_TIME_GTC, 0, PositionComment);
          }else{
-            trade.BuyLimit(lot, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+            trade.BuyLimit(lot, p, _Symbol, sl, tp1, ORDER_TIME_GTC, 0, PositionComment);
          }
       }
 
@@ -184,22 +187,23 @@ void OnTick()
       if(instant_entry) p = bid;
       else p = order_price_ratio * (p1_-p2_) + p2_;
       double sl = p1_ + sl_offset_points*_Point;
-      double tp = p - Rr * (sl-p);
+      double tp1 = p + 1 * Rr * (p-sl);
+      double tp2 = p + 2 * Rr * (p-sl);
       double lot = calculate_lot_size((sl-p)/_Point, risk);
       double lot_ = NormalizeDouble(floor(100*lot/2)/100, 2);
       if(instant_entry){
          if(close_only_half_size_on_tp){
-            trade.Sell(lot_, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
-            trade.Sell(lot_, _Symbol, p, sl, 0, DoubleToString(sl, _Digits));
+            trade.Sell(lot_, _Symbol, p, sl, tp1, PositionComment);
+            trade.Sell(lot_, _Symbol, p, sl, tp2, PositionComment);
          }else{
-            trade.Sell(lot, _Symbol, p, sl, tp, DoubleToString(sl, _Digits));
+            trade.Sell(lot, _Symbol, p, sl, tp1, PositionComment);
          }
       }else{
          if(close_only_half_size_on_tp){
-            trade.SellLimit(lot_, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
-            trade.SellLimit(lot_, p, _Symbol, sl, 0, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+            trade.SellLimit(lot_, p, _Symbol, sl, tp1, ORDER_TIME_GTC, 0, PositionComment);
+            trade.SellLimit(lot_, p, _Symbol, sl, tp2, ORDER_TIME_GTC, 0, PositionComment);
          }else{
-            trade.SellLimit(lot, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, DoubleToString(sl, _Digits));
+            trade.SellLimit(lot, p, _Symbol, sl, tp1, ORDER_TIME_GTC, 0, PositionComment);
          }
       }
    }
