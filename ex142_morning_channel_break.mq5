@@ -148,6 +148,7 @@ void OnTick()
       if(prop_challenge_criteria.is_current_period_passed()) risk = new_risk_if_prop_passed;
       else risk = risk_original;
       if(today_profit-risk-10<=-prop_challenge_daily_loss_limit) return;
+      if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
