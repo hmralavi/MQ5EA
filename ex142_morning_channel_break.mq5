@@ -49,6 +49,7 @@ input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(us
 input double prop_challenge_daily_loss_limit = 450;  // Max loss (usd) in one day
 input double new_risk_if_prop_passed = 10; // new risk (usd) if prop challenge is passed.
 input group "EA settings"
+input double equity_stop_trading = 0;  // Stop trading if account equity is above this:
 input string PositionComment = "";
 input int Magic = 142;  // EA's magic number
 
@@ -89,6 +90,15 @@ void OnDeinit(const int reason){
 
 void OnTick()
 {  
+   if(equity_stop_trading>0){
+      double acc_eq = AccountInfoDouble(ACCOUNT_EQUITY);
+      if(acc_eq>=equity_stop_trading){
+         CloseAllPositions(trade);
+         DeleteAllOrders(trade);
+         return;
+      }
+   }
+   
    if(prop_challenge_criteria_enabled){
       prop_challenge_criteria.update();
       if(prop_challenge_criteria.is_current_period_passed() && risk>=risk_original){
