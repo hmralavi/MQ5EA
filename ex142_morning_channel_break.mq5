@@ -44,7 +44,6 @@ input int atr_period = 100;
 input double atr_channel_deviation = 2;
 input group "Optimization criteria for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
-input ENUM_MONTH prop_challenge_period_month = MONTH_JAN; // Optimize for which month?
 input double prop_challenge_min_profit_usd = 800; // Min profit desired(usd);
 input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(usd);
 input double prop_challenge_daily_loss_limit = 450;  // Max loss (usd) in one day
@@ -61,7 +60,7 @@ bool market_lh_calculated = false;
 int atr_handle;
 bool new_candle = false;
 double risk = risk_original;
-PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_period_month, Magic);
+PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
 
 #define MO StringToTime(_MO)  // market open time
 #define MC MO + market_duration_minutes*60  // market close time
