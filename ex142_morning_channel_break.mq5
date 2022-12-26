@@ -61,7 +61,6 @@ bool market_lh_calculated = false;
 int atr_handle;
 bool new_candle = false;
 double risk = risk_original;
-double today_profit = 0;
 PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_period_month, Magic);
 
 #define MO StringToTime(_MO)  // market open time
@@ -116,7 +115,6 @@ void OnTick()
    
    if(TimeCurrent() < MC){
       market_lh_calculated = false;
-      today_profit = 0;
       return;
    }
 
@@ -153,6 +151,7 @@ void OnTick()
    if(prop_challenge_criteria_enabled){
       if(prop_challenge_criteria.is_current_period_passed()) risk = new_risk_if_prop_passed;
       else risk = risk_original;
+      double today_profit = prop_challenge_criteria.get_today_profit();
       if(today_profit-risk-10<=-prop_challenge_daily_loss_limit) return;
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
@@ -226,7 +225,6 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
       HistorySelect(TimeCurrent()-PeriodSeconds(PERIOD_D1), TimeCurrent()+10);
       if(deal.Magic()==Magic && deal.Symbol()==_Symbol){
          if(deal.Entry()==DEAL_ENTRY_OUT){
-            today_profit += deal.Profit();
             DeleteAllOrders(trade);
             ulong pos_tickets[];
             GetMyPositionsTickets(Magic, pos_tickets);
