@@ -151,7 +151,7 @@ void OnTick()
       if(prop_challenge_criteria.is_current_period_passed()) risk = new_risk_if_prop_passed;
       else risk = risk_original;
       double today_profit = prop_challenge_criteria.get_today_profit();
-      if(today_profit-risk-10<=-prop_challenge_daily_loss_limit) return;
+      if(today_profit-risk*1.01<=-prop_challenge_daily_loss_limit) return;
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
    
