@@ -9,7 +9,8 @@ public:
    double profit;
    double profit_max;
    double profit_min;
-   void PeriodData(int magic);
+   void PeriodData(void);
+   void PeriodData(int magic, int period_range=0); // period_range 0 means current month, 1 means current day
    void update(void);
 };
 
@@ -33,17 +34,31 @@ public:
    bool is_current_period_profit_passed(void);
    bool is_current_period_passed(void);
    double get_results(void);
+   double get_today_profit(void);
 };
 
 
-void PeriodData::PeriodData(int magic){
+void PeriodData::PeriodData(void){
+
+}
+
+void PeriodData::PeriodData(int magic, int period_range=0){
    MqlDateTime time_start, time_end;
    TimeToStruct(TimeCurrent(), time_start);
    TimeToStruct(TimeCurrent(), time_end);
-   time_start.day=1;
-   if(time_end.mon==4 || time_end.mon==6 || time_end.mon==9 || time_end.mon==11) time_end.day=30;
-   else if(time_end.mon==2) time_end.day=28;
-   else time_end.day=31;
+   if(period_range==0){
+      time_start.day=1;
+      if(time_end.mon==4 || time_end.mon==6 || time_end.mon==9 || time_end.mon==11) time_end.day=30;
+      else if(time_end.mon==2) time_end.day=28;
+      else time_end.day=31;     
+   }
+   time_start.hour=0;
+   time_start.min=0;
+   time_start.sec=0;
+   time_end.hour=23;
+   time_end.min=59;
+   time_end.sec=59;
+
    datetime_start = StructToTime(time_start);
    datetime_end = StructToTime(time_end);
    magic_number = magic;
@@ -155,4 +170,10 @@ double PropChallengeCriteria::get_results(void){
    }
    score /= ndata;
    return score;
+}
+
+double PropChallengeCriteria::get_today_profit(void){
+   PeriodData pdata = PeriodData(magic_number, 1);
+   pdata.update();
+   return pdata.profit;
 }
