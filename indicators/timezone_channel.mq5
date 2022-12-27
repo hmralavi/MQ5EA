@@ -8,12 +8,12 @@
 #property indicator_plots     2
 
 #property indicator_label1 "ZoneUpperEdge"
-#property indicator_color1 clrBlue, clrAqua
+#property indicator_color1 clrBlue, clrDeepSkyBlue, clrAqua
 #property indicator_type1  DRAW_COLOR_LINE
 #property indicator_width1 2
 
 #property indicator_label2 "ZoneLowerEdge"
-#property indicator_color2 clrBlue, clrAqua
+#property indicator_color2 clrBlue, clrDeepSkyBlue, clrAqua
 #property indicator_type2  DRAW_COLOR_LINE
 #property indicator_width2 2
 
@@ -95,10 +95,14 @@ int OnCalculate(const int rates_total,
          ExtLowerEdgeColor[i] = 0;
          if(high[i]>ExtUpperEdge[i-1]) ExtUpperEdge[i] = high[i];
          if(low[i]<ExtLowerEdge[i-1]) ExtLowerEdge[i] = low[i];
-      }else if(time[i]>=datetime_end && time[i]<datetime_terminate){
+      }else if(time[i]>=datetime_end && time[i]<=(datetime_end+datetime_terminate)/2){
          ExtZoneType[i] = 2;
          ExtUpperEdgeColor[i] = 1;
          ExtLowerEdgeColor[i] = 1;
+      }else if(time[i]>(datetime_end+datetime_terminate)/2 && time[i]<datetime_terminate){
+         ExtZoneType[i] = 3;
+         ExtUpperEdgeColor[i] = 2;
+         ExtLowerEdgeColor[i] = 2;
       }else{
          ExtZoneType[i] = 0;
          ExtUpperEdge[i] = 0;
