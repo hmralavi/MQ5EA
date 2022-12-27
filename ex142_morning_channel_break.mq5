@@ -39,6 +39,7 @@ input double order_price_ratio = 0.0;  // order price ratio. 0 close to broken e
 input bool close_only_half_size_on_tp = true;
 input ENUM_EXIT_POLICY after_terminate_time_exit_policy = EXIT_POLICY_BREAKEVEN;  // how to close open positions when market_terminate time triggers?
 input group "Trailing Stoploss"
+input bool risk_free = false;
 input bool trailing_stoploss = false;
 input int atr_period = 100;
 input double atr_channel_deviation = 2;
@@ -139,6 +140,14 @@ void OnTick()
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
+   
+   if(risk_free){
+      int npos = ArraySize(pos_tickets);
+      for(int ipos=0;ipos<npos;ipos++){
+         RiskFree(trade, pos_tickets[ipos]);      
+      }
+   }
+
    if(trailing_stoploss){
       int npos = ArraySize(pos_tickets);
       for(int ipos=0;ipos<npos;ipos++){
