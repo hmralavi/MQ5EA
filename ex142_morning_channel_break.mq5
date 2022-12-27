@@ -55,37 +55,30 @@ input string PositionComment = "";
 input int Magic = 142;  // EA's magic number
 
 CTrade trade;
-string _MO,_MT;
 ENUM_TIMEFRAMES tf;
-MqlRates ML, MH; // market low, high
-bool market_lh_calculated = false;
-int atr_handle;
-bool new_candle = false;
+int timezone_channel_handle, atr_handle;
 double risk = risk_original;
 PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
 
-#define MO StringToTime(_MO)  // market open time
-#define MC MO + market_duration_minutes*60  // market close time
-#define MT StringToTime(_MT)  // market terminate time
-#define MM (MC+MT)/2  // market mean time
+#define ZONE_UPPER_EDGE_BUFFER 0
+#define ZONE_LOWER_EDGE_BUFFER 2
+#define ZONE_TYPE_BUFFER 4
 
 int OnInit()
 {
    trade.SetExpertMagicNumber(Magic);
-   _MO = IntegerToString(market_open_hour,2,'0')+":"+IntegerToString(market_open_minute,2,'0');
-   _MT = IntegerToString(market_terminate_hour,2,'0')+":"+IntegerToString(market_terminate_minute,2,'0');
    if(use_chart_timeframe) tf = _Period;
    else tf = costume_timeframe;
    ObjectsDeleteAll(0);
-   if(trailing_stoploss){
-      atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
-      ChartIndicatorAdd(0, 0, atr_handle);
-   }
+   timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", market_open_hour, market_open_minute, market_duration_minutes, market_terminate_hour, market_terminate_minute);
+   ChartIndicatorAdd(0, 0, timezone_channel_handle);
+   if(trailing_stoploss) atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
    return(INIT_SUCCEEDED);
 }
 
 void OnDeinit(const int reason){
    Print("Prop challenge winrate: ", NormalizeDouble(prop_challenge_criteria.get_results(), 2)*100, "%");
+   IndicatorRelease(timezone_channel_handle);
    IndicatorRelease(atr_handle);
    ObjectsDeleteAll(0);
 }
@@ -108,14 +101,14 @@ void OnTick()
          DeleteAllOrders(trade);
       }
    }
-       
-   new_candle = IsNewCandle(tf);
    
-   if(TimeCurrent() >= MT || TimeCurrent()<MO){
+   double zone_type[1];
+   CopyBuffer(timezone_channel_handle, ZONE_TYPE_BUFFER, 0, 1, zone_type);
+   
+   if(zone_type[0]<=1){
       DeleteAllOrders(trade);
       run_exit_policy();
       return;
-      
    }
    
    if(trading_month>0){
@@ -123,20 +116,6 @@ void OnTick()
       TimeToStruct(TimeCurrent(), current_date);
       if(current_date.mon != trading_month) return;
    }
-   
-   if(TimeCurrent() < MC){
-      market_lh_calculated = false;
-      return;
-   }
-
-   if(!market_lh_calculated){
-      market_lh_calculated = calculate_market_low_high();
-      ObjectsDeleteAll(0);
-      ObjectCreate(0, "marketlh", OBJ_RECTANGLE, 0, MC-PeriodSeconds(tf), MH.high, MO, ML.low);    
-      ObjectSetInteger(0, "marketlh", OBJPROP_STYLE, STYLE_DOT); 
-   }
-   
-   if(!market_lh_calculated) return;
    
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
@@ -165,7 +144,7 @@ void OnTick()
    }
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;  
    
-   if(!new_candle) return;
+   if(!IsNewCandle(tf)) return;
    
    if(prop_challenge_criteria_enabled){
       if(prop_challenge_criteria.is_current_period_passed()) risk = new_risk_if_prop_passed;
@@ -175,14 +154,20 @@ void OnTick()
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
    
-   if(TimeCurrent() >= MM) return;
+   if(zone_type[0]==3) return;
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double upper_edge[1];
+   double lower_edge[1];
+   CopyBuffer(timezone_channel_handle, ZONE_UPPER_EDGE_BUFFER, 0, 1, upper_edge);
+   CopyBuffer(timezone_channel_handle, ZONE_LOWER_EDGE_BUFFER, 0, 1, lower_edge);
+   double ML = lower_edge[0];
+   double MH = upper_edge[0];
    
-   if(iClose(_Symbol,tf,1) > MH.high && iOpen(_Symbol,tf,1) <= MH.high){
-      double p1_ = ML.low;
-      double p2_ = MH.high;
+   if(iClose(_Symbol,tf,1) > MH && iOpen(_Symbol,tf,1) <= MH){
+      double p1_ = ML;
+      double p2_ = MH;
       double p;
       if(instant_entry) p = ask;
       else p = order_price_ratio * (p1_-p2_) + p2_;
@@ -207,9 +192,9 @@ void OnTick()
          }
       }
 
-   }else if(iClose(_Symbol,tf,1) < ML.low && iOpen(_Symbol,tf,1) >= ML.low){
-      double p1_ = MH.high;
-      double p2_ = ML.low;
+   }else if(iClose(_Symbol,tf,1) < ML && iOpen(_Symbol,tf,1) >= ML){
+      double p1_ = MH;
+      double p2_ = ML;
       double p;
       if(instant_entry) p = bid;
       else p = order_price_ratio * (p1_-p2_) + p2_;
@@ -259,25 +244,6 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
          }
       }
    }   
-}
-
-bool calculate_market_low_high(){
-   MqlRates mrate[];
-   ArraySetAsSeries(mrate, true);
-   int st = iBarShift(_Symbol, tf, MC, true);
-   int en = iBarShift(_Symbol, tf, MO, true);
-   if(st<0 || en<0) return false;
-   st++;
-   CopyRates(_Symbol,tf,st,en-st+1,mrate);
-   MqlRates ml = mrate[0];
-   MqlRates mh = mrate[0];
-   for(int i=0;i<en-st+1;i++){
-      if(mrate[i].low<ml.low) ml = mrate[i];
-      if(mrate[i].high>mh.high) mh = mrate[i];
-   }
-   ML = ml;
-   MH = mh;
-   return true;
 }
 
 
