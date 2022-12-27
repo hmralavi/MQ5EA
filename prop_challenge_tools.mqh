@@ -73,7 +73,6 @@ void PeriodData::update(void){
    int ndeals = HistoryDealsTotal();
    for(int i=0;i<ndeals;i++){
       ulong dealticket = HistoryDealGetTicket(i);
-      HistoryDealSelect(dealticket);
       int magic = HistoryDealGetInteger(dealticket, DEAL_MAGIC);
       if(magic != magic_number) continue;
       _prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
