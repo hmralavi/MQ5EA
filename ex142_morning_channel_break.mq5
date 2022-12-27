@@ -67,6 +67,7 @@ PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, pro
 #define MO StringToTime(_MO)  // market open time
 #define MC MO + market_duration_minutes*60  // market close time
 #define MT StringToTime(_MT)  // market terminate time
+#define MM (MC+MT)/2  // market mean time
 
 int OnInit()
 {
@@ -173,6 +174,8 @@ void OnTick()
       if(today_profit-risk*1.01<=-prop_challenge_daily_loss_limit) return;
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
+   
+   if(TimeCurrent() >= MM) return;
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
