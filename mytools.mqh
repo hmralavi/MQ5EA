@@ -102,6 +102,21 @@ void CloseAllPositions(CTrade& trade){
    for(int i=0; i<npos; i++) trade.PositionClose(position_tickets[i]);
 }
 
+void RiskFree(CTrade& trade, ulong pos_ticket){
+   PositionSelectByTicket(pos_ticket);
+   ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+   string current_sym = PositionGetString(POSITION_SYMBOL);
+   double current_sl = PositionGetDouble(POSITION_SL);
+   double current_tp = PositionGetDouble(POSITION_TP);
+   double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+   double ask_price = SymbolInfoDouble(current_sym, SYMBOL_ASK);
+   double bid_price = SymbolInfoDouble(current_sym, SYMBOL_BID);
+   bool new_sl = false;
+   if(pos_type == POSITION_TYPE_BUY && bid_price - open_price >= open_price-current_sl && current_sl<open_price) new_sl = true;
+   else if(pos_type == POSITION_TYPE_SELL && open_price - ask_price >= current_sl-open_price && current_sl>open_price) new_sl=true;
+   if(new_sl) trade.PositionModify(pos_ticket, open_price, current_tp);
+}
+
 void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double trigger_points=0){
    PositionSelectByTicket(pos_ticket);
    ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
