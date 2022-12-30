@@ -22,6 +22,7 @@ input int zone_start_minute = 0;
 input int zone_duration_minute = 60;
 input int zone_terminate_hour = 20;
 input int zone_terminate_minute = 0;
+input double no_new_trade_timerange_ratio = 0.5;
 
 //--- indicator buffers
 double ExtUpperEdge[];
@@ -95,11 +96,11 @@ int OnCalculate(const int rates_total,
          ExtLowerEdgeColor[i] = 0;
          if(high[i]>ExtUpperEdge[i-1]) ExtUpperEdge[i] = high[i];
          if(low[i]<ExtLowerEdge[i-1]) ExtLowerEdge[i] = low[i];
-      }else if(time[i]>=datetime_end && time[i]<=(datetime_end+datetime_terminate)/2){
+      }else if(time[i]>=datetime_end && time[i]<=datetime_end+(datetime_terminate-datetime_end)*no_new_trade_timerange_ratio){
          ExtZoneType[i] = 2;
          ExtUpperEdgeColor[i] = 1;
          ExtLowerEdgeColor[i] = 1;
-      }else if(time[i]>(datetime_end+datetime_terminate)/2 && time[i]<datetime_terminate){
+      }else if(time[i]>datetime_end+(datetime_terminate-datetime_end)*no_new_trade_timerange_ratio && time[i]<datetime_terminate){
          ExtZoneType[i] = 3;
          ExtUpperEdgeColor[i] = 2;
          ExtLowerEdgeColor[i] = 2;
