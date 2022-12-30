@@ -69,7 +69,6 @@ int OnInit()
    trade.SetExpertMagicNumber(Magic);
    if(use_chart_timeframe) tf = _Period;
    else tf = costume_timeframe;
-   ObjectsDeleteAll(0);
    timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", market_open_hour, market_open_minute, market_duration_minutes, market_terminate_hour, market_terminate_minute);
    ChartIndicatorAdd(0, 0, timezone_channel_handle);
    if(trailing_stoploss) atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
@@ -77,10 +76,8 @@ int OnInit()
 }
 
 void OnDeinit(const int reason){
-   Print("Prop challenge winrate: ", NormalizeDouble(prop_challenge_criteria.get_results(), 2)*100, "%");
    IndicatorRelease(timezone_channel_handle);
    IndicatorRelease(atr_handle);
-   ObjectsDeleteAll(0);
 }
 
 void OnTick()
@@ -96,7 +93,7 @@ void OnTick()
    
    if(prop_challenge_criteria_enabled){
       prop_challenge_criteria.update();
-      if(prop_challenge_criteria.is_current_period_passed() && risk>=risk_original){
+      if(prop_challenge_criteria.is_current_period_passed() && risk>new_risk_if_prop_passed){
          CloseAllPositions(trade);
          DeleteAllOrders(trade);
       }
@@ -147,14 +144,19 @@ void OnTick()
    if(!IsNewCandle(tf)) return;
    
    if(prop_challenge_criteria_enabled){
-      if(prop_challenge_criteria.is_current_period_passed()) risk = new_risk_if_prop_passed;
-      else risk = risk_original;
+      if(prop_challenge_criteria.is_current_period_passed()){
+         risk = new_risk_if_prop_passed;
+      }else{
+         double period_prof = prop_challenge_criteria.get_current_period_profit();
+         double risk_to_reach_drawdown = period_prof + prop_challenge_max_drawdown_usd;
+         risk = MathMin(risk_original, risk_to_reach_drawdown);
+      }
       double today_profit = prop_challenge_criteria.get_today_profit();
       if(today_profit-risk*1.01<=-prop_challenge_daily_loss_limit) return;
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
    
-   if(zone_type[0]==3) return;
+   if(zone_type[0]!=2) return;
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);

@@ -30,6 +30,8 @@ public:
    void PropChallengeCriteria(void);
    void PropChallengeCriteria(double min_profit_usd, double max_drawdown_usd, ENUM_MONTH period_month, int magic);
    void update(void);
+   double get_current_period_profit(void);
+   double get_current_period_drawdown(void);
    bool is_current_period_drawdown_passed(void);
    bool is_current_period_profit_passed(void);
    bool is_current_period_passed(void);
@@ -126,6 +128,24 @@ bool PropChallengeCriteria::is_profit_passed(const PeriodData &pdata){
    bool is_passed;
    is_passed = pdata.profit>=min_profit_usd*1.01;
    return is_passed;
+}
+
+double PropChallengeCriteria::get_current_period_profit(void){
+   double prof = 0;
+   int ndata = ArraySize(period_data);
+   if(ndata>0){
+      prof = period_data[ndata-1].profit;
+   }
+   return prof;
+}
+
+double PropChallengeCriteria::get_current_period_drawdown(void){
+   double dd = 0;
+   int ndata = ArraySize(period_data);
+   if(ndata>0){
+      dd = period_data[ndata-1].profit_min;
+   }
+   return dd;
 }
 
 bool PropChallengeCriteria::is_current_period_drawdown_passed(void){
