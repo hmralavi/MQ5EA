@@ -28,6 +28,7 @@ input int market_open_minute = 0;
 input int market_duration_minutes = 60;
 input int market_terminate_hour = 20;
 input int market_terminate_minute = 0;
+input double no_new_trade_timerange_ratio = 0.5;
 input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
 input group "Risk"
 input double sl_offset_points = 50;  // sl offset points channel edge
@@ -69,7 +70,7 @@ int OnInit()
    trade.SetExpertMagicNumber(Magic);
    if(use_chart_timeframe) tf = _Period;
    else tf = costume_timeframe;
-   timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", market_open_hour, market_open_minute, market_duration_minutes, market_terminate_hour, market_terminate_minute);
+   timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", market_open_hour, market_open_minute, market_duration_minutes, market_terminate_hour, market_terminate_minute, no_new_trade_timerange_ratio);
    ChartIndicatorAdd(0, 0, timezone_channel_handle);
    if(trailing_stoploss) atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
    return(INIT_SUCCEEDED);
