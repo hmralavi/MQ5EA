@@ -238,11 +238,11 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
             ulong pos_tickets[];
             GetMyPositionsTickets(Magic, pos_tickets);
             int npos = ArraySize(pos_tickets);
-            double sl;
             for(int i=0;i<npos;i++){  
                PositionSelectByTicket(pos_tickets[i]);
-               sl = PositionGetDouble(POSITION_PRICE_OPEN);                             
-               trade.PositionModify(pos_tickets[i], sl, 0); 
+               double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+               double tp = PositionGetDouble(POSITION_TP);                             
+               trade.PositionModify(pos_tickets[i], open_price, tp); 
             }
          }
       }
