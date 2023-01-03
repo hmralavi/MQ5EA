@@ -235,15 +235,6 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
       if(deal.Magic()==Magic && deal.Symbol()==_Symbol){
          if(deal.Entry()==DEAL_ENTRY_OUT){
             DeleteAllOrders(trade);
-            ulong pos_tickets[];
-            GetMyPositionsTickets(Magic, pos_tickets);
-            int npos = ArraySize(pos_tickets);
-            for(int i=0;i<npos;i++){  
-               PositionSelectByTicket(pos_tickets[i]);
-               double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-               double tp = PositionGetDouble(POSITION_TP);                             
-               trade.PositionModify(pos_tickets[i], open_price, tp); 
-            }
          }
       }
    }   
