@@ -34,7 +34,8 @@ input int zone_duration_minute = 60;
 input int zone_terminate_hour = 21;
 input int zone_terminate_minute = 0;
 input double no_new_trade_timerange_ratio = 0.5;
-input int n_days_winrate = 30;
+input bool backtesting = false;
+input int n_days_backtest = 30;
 
 //--- indicator buffers
 double ExtUpperEdge[];
@@ -152,68 +153,73 @@ int OnCalculate(const int rates_total,
          ExtInPositionLine[i] = MID_PRICE;
          ExtInPositionLineColor[i] = ExtInPosition[i]-1;
       }
-      if(ExtInPosition[i] != ExtInPosition[i-1]){
-         int n = ArraySize(InPositionChangedIndex);
-         ArrayResize(InPositionChangedIndex, n+1);
-         InPositionChangedIndex[n] = i;
-      }
+
       
       // update winrate and profit points
-      MqlDateTime st;
-      datetime st_ = time[i];
-      for(int d=1;d<=n_days_winrate;d++){         
-         st_ -= 24*60*60;
-         MqlDateTime temp;
-         TimeToStruct(st_ , temp);
-         if(temp.day_of_week==0) st_ -= 2*24*60*60;  // compensating for the weekends
-      }
-      TimeToStruct(st_, st);
-      st.hour = 0;
-      st.min = 0;
-      st.sec = 0;
-      datetime start_time = StructToTime(st);
-      
-      int npos = ArraySize(InPositionChangedIndex);
-      int ntotal = 0;
-      double nwins = 0;
-      double prof = 0;
-      for(int j=npos-1;j>1;j--){
-         if(time[InPositionChangedIndex[j]]>=start_time) continue;
-         j++;
-         for(int k=j;k<npos;k++){
-            int icandle_start = InPositionChangedIndex[k];
-            int icandle_end;
-            if(k==npos-1) icandle_end = i;
-            else icandle_end = InPositionChangedIndex[k+1];
-            MqlDateTime tstart, tend;
-            TimeToStruct(time[icandle_start], tstart);
-            TimeToStruct(time[icandle_end], tend);
-            if(tstart.day != tend.day) continue;
-            double plow = ExtLowerEdge[icandle_start];
-            double phigh = ExtUpperEdge[icandle_start];
-            if(ExtInPosition[icandle_start]==1){
-               ntotal++;
-               if(low[icandle_end]<plow){
-                  prof += -(close[icandle_start]-plow);
-               }else{
-                  prof += open[icandle_end] - close[icandle_start];
-                  nwins++;
-               }
-            }
-            if(ExtInPosition[icandle_start]==2){
-               ntotal++;
-               if(high[icandle_end]>phigh){
-                  prof += -(phigh-close[icandle_start]);
-               }else{
-                  prof += close[icandle_start] - open[icandle_end];
-                  nwins++;
-               }
-            }
+      if(backtesting){
+         
+         if(ExtInPosition[i] != ExtInPosition[i-1]){
+            int n = ArraySize(InPositionChangedIndex);
+            ArrayResize(InPositionChangedIndex, n+1);
+            InPositionChangedIndex[n] = i;
          }
-         break;
+      
+         MqlDateTime st;
+         datetime st_ = time[i];
+         for(int d=1;d<=n_days_backtest;d++){         
+            st_ -= 24*60*60;
+            MqlDateTime temp;
+            TimeToStruct(st_ , temp);
+            if(temp.day_of_week==0) st_ -= 2*24*60*60;  // compensating for the weekends
+         }
+         TimeToStruct(st_, st);
+         st.hour = 0;
+         st.min = 0;
+         st.sec = 0;
+         datetime start_time = StructToTime(st);
+         
+         int npos = ArraySize(InPositionChangedIndex);
+         int ntotal = 0;
+         double nwins = 0;
+         double prof = 0;
+         for(int j=npos-1;j>1;j--){
+            if(time[InPositionChangedIndex[j]]>=start_time) continue;
+            j++;
+            for(int k=j;k<npos;k++){
+               int icandle_start = InPositionChangedIndex[k];
+               int icandle_end;
+               if(k==npos-1) icandle_end = i;
+               else icandle_end = InPositionChangedIndex[k+1];
+               MqlDateTime tstart, tend;
+               TimeToStruct(time[icandle_start], tstart);
+               TimeToStruct(time[icandle_end], tend);
+               if(tstart.day != tend.day) continue;
+               double plow = ExtLowerEdge[icandle_start];
+               double phigh = ExtUpperEdge[icandle_start];
+               if(ExtInPosition[icandle_start]==1){
+                  ntotal++;
+                  if(low[icandle_end]<plow){
+                     prof += -(close[icandle_start]-plow);
+                  }else{
+                     prof += open[icandle_end] - close[icandle_start];
+                     nwins++;
+                  }
+               }
+               if(ExtInPosition[icandle_start]==2){
+                  ntotal++;
+                  if(high[icandle_end]>phigh){
+                     prof += -(phigh-close[icandle_start]);
+                  }else{
+                     prof += close[icandle_start] - open[icandle_end];
+                     nwins++;
+                  }
+               }
+            }
+            break;
+         }
+         if(ntotal!=0) ExtWinRate[i] = NormalizeDouble(100*nwins/ntotal, 2);
+         ExtProfitPoints[i] = prof/_Point;
       }
-      if(ntotal!=0) ExtWinRate[i] = NormalizeDouble(100*nwins/ntotal, 2);
-      ExtProfitPoints[i] = prof/_Point;
    }
    return (rates_total);
 }

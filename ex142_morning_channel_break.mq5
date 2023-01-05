@@ -65,7 +65,7 @@ PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, pro
 
 #define ZONE_UPPER_EDGE_BUFFER 0
 #define ZONE_LOWER_EDGE_BUFFER 2
-#define ZONE_TYPE_BUFFER 4
+#define ZONE_TYPE_BUFFER 9
 
 int OnInit()
 {
