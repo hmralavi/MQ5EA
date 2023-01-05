@@ -30,6 +30,8 @@ input int market_terminate_hour = 20;
 input int market_terminate_minute = 0;
 input double no_new_trade_timerange_ratio = 0.5;
 input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
+input int trading_day_start = 1;
+input int trading_day_end = 31;
 input group "Risk"
 input double sl_offset_points = 50;  // sl offset points channel edge
 input double risk_original = 400;  // risk usd per trade
@@ -109,11 +111,10 @@ void OnTick()
       return;
    }
    
-   if(trading_month>0){
-      MqlDateTime current_date;
-      TimeToStruct(TimeCurrent(), current_date);
-      if(current_date.mon != trading_month) return;
-   }
+   MqlDateTime current_date;
+   TimeToStruct(TimeCurrent(), current_date);
+   if(trading_month>0) if(current_date.mon != trading_month) return;
+   if(current_date.day<trading_day_start || current_date.day>trading_day_end) return; 
    
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
