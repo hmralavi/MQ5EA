@@ -18,7 +18,7 @@
 #property indicator_width2 2
 
 #property indicator_label3 "InPosition"
-#property indicator_color3 clrGreen, clrRed
+#property indicator_color3 clrNONE, clrNONE
 #property indicator_type3  DRAW_COLOR_LINE
 #property indicator_width3 2
 
