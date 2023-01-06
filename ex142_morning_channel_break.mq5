@@ -23,6 +23,8 @@ enum ENUM_EXIT_POLICY{
 input group "Time"
 input bool use_chart_timeframe = false;
 input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M15;
+input bool trade_only_in_trend_direction = false;
+input ENUM_TIMEFRAMES trend_timeframe = PERIOD_D1;
 input int market_open_hour = 3;
 input int market_open_minute = 0;
 input int market_duration_minutes = 60;
@@ -59,13 +61,14 @@ input int Magic = 142;  // EA's magic number
 
 CTrade trade;
 ENUM_TIMEFRAMES tf;
-int timezone_channel_handle, atr_handle;
+int timezone_channel_handle, atr_handle, trend_handle;
 double risk = risk_original;
 PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
 
 #define ZONE_UPPER_EDGE_BUFFER 0
 #define ZONE_LOWER_EDGE_BUFFER 2
 #define ZONE_TYPE_BUFFER 9
+#define TREND_BUFFER 7
 
 int OnInit()
 {
@@ -75,6 +78,7 @@ int OnInit()
    timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", market_open_hour, market_open_minute, market_duration_minutes, market_terminate_hour, market_terminate_minute, no_new_trade_timerange_ratio);
    ChartIndicatorAdd(0, 0, timezone_channel_handle);
    if(trailing_stoploss) atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
+   if(trade_only_in_trend_direction) trend_handle = iCustom(_Symbol, trend_timeframe, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", 6, 1);
    return(INIT_SUCCEEDED);
 }
 
@@ -169,7 +173,21 @@ void OnTick()
    double ML = lower_edge[0];
    double MH = upper_edge[0];
    
-   if(iClose(_Symbol,tf,1) > MH && iOpen(_Symbol,tf,1) <= MH){
+   bool buy_allowed = false;
+   bool sell_allowed = false;
+   
+   if(trade_only_in_trend_direction){
+      double trend[];
+      ArraySetAsSeries(trend, true);
+      CopyBuffer(trend_handle, TREND_BUFFER, 1, 2, trend);
+      if(trend[0]==1) buy_allowed = true;
+      if(trend[0]==2) sell_allowed = true;
+   }else{
+      buy_allowed = true;
+      sell_allowed = true;
+   }
+   
+   if(iClose(_Symbol,tf,1) > MH && iOpen(_Symbol,tf,1) <= MH && buy_allowed){
       double p1_ = ML;
       double p2_ = MH;
       double p;
@@ -196,7 +214,7 @@ void OnTick()
          }
       }
 
-   }else if(iClose(_Symbol,tf,1) < ML && iOpen(_Symbol,tf,1) >= ML){
+   }else if(iClose(_Symbol,tf,1) < ML && iOpen(_Symbol,tf,1) >= ML && sell_allowed){
       double p1_ = MH;
       double p2_ = ML;
       double p;
