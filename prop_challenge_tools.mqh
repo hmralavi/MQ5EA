@@ -35,7 +35,7 @@ public:
    bool is_current_period_drawdown_passed(void);
    bool is_current_period_profit_passed(void);
    bool is_current_period_passed(void);
-   double get_results(void);
+   double get_results(datetime& passed_periods[]);
    double get_today_profit(void);
 };
 
@@ -181,11 +181,16 @@ bool PropChallengeCriteria::is_current_period_passed(void){
    return is_passed;
 }
 
-double PropChallengeCriteria::get_results(void){
+double PropChallengeCriteria::get_results(datetime& passed_periods[]){
    int ndata = ArraySize(period_data);
    double score=0;
    for(int i=0;i<ndata;i++){
-      if(is_period_passed(period_data[i])) score++;
+      if(is_period_passed(period_data[i])){
+         score++;
+         int n = ArraySize(passed_periods);
+         ArrayResize(passed_periods, n+1);
+         passed_periods[n] = period_data[i].datetime_start;
+      }
    }
    score /= ndata;
    return score;

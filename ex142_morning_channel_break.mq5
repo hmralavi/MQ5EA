@@ -187,6 +187,7 @@ void OnTick()
       sell_allowed = true;
    }
    
+   //if(iClose(_Symbol,tf,1) > MH && iOpen(_Symbol,tf,1) <= MH && buy_allowed && iHigh(_Symbol,tf,1) >= MH + sl_offset_points*_Point){
    if(iClose(_Symbol,tf,1) > MH && iOpen(_Symbol,tf,1) <= MH && buy_allowed){
       double p1_ = ML;
       double p2_ = MH;
@@ -213,7 +214,8 @@ void OnTick()
             trade.BuyLimit(lot, p, _Symbol, sl, tp1, ORDER_TIME_GTC, 0, PositionComment);
          }
       }
-
+   
+   //}else if(iClose(_Symbol,tf,1) < ML && iOpen(_Symbol,tf,1) >= ML && sell_allowed && iLow(_Symbol,tf,1) <= ML - sl_offset_points*_Point){
    }else if(iClose(_Symbol,tf,1) < ML && iOpen(_Symbol,tf,1) >= ML && sell_allowed){
       double p1_ = MH;
       double p2_ = ML;
@@ -293,5 +295,12 @@ void run_exit_policy(void){
 
 
 double OnTester(void){
-   return prop_challenge_criteria.get_results();
+   datetime passed_periods[];
+   double result = prop_challenge_criteria.get_results(passed_periods);
+   int n = ArraySize(passed_periods);
+   Print("PASSED PERIODS");
+   Print("-----------------");
+   for(int i=0;i<n;i++) Print(passed_periods[i]);
+   Print("-----------------");
+   return result;
 }
