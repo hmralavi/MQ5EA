@@ -120,13 +120,13 @@ void PropChallengeCriteria::update(void){
 
 bool PropChallengeCriteria::is_drawdown_passed(const PeriodData &pdata){
    bool is_passed;
-   is_passed = pdata.profit_min>=-max_drawdown_usd*0.99;
+   is_passed = pdata.profit_min>=-max_drawdown_usd;
    return is_passed;
 }
 
 bool PropChallengeCriteria::is_profit_passed(const PeriodData &pdata){
    bool is_passed;
-   is_passed = pdata.profit>=min_profit_usd*1.01;
+   is_passed = pdata.profit>=min_profit_usd;
    return is_passed;
 }
 

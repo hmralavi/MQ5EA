@@ -100,7 +100,8 @@ void OnTick()
    
    if(prop_challenge_criteria_enabled){
       prop_challenge_criteria.update();
-      if(prop_challenge_criteria.is_current_period_passed() && risk>new_risk_if_prop_passed){
+      double period_prof = prop_challenge_criteria.get_current_period_profit();
+      if(period_prof>=prop_challenge_min_profit_usd*1.01 && risk>new_risk_if_prop_passed){
          CloseAllPositions(trade);
          DeleteAllOrders(trade);
       }
