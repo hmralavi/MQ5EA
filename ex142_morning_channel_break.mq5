@@ -106,7 +106,7 @@ void OnTick()
       period_prof = prop_challenge_criteria.get_current_period_profit();
       period_drawdown = prop_challenge_criteria.get_current_period_drawdown();
       today_profit = prop_challenge_criteria.get_today_profit();
-      if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) Comment(" Today profit: ", int(today_profit),"\n Period Profit: ", int(period_prof), "\n Period Drawdown: ", int(period_drawdown), "\n Risk: ", int(risk));
+      if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) Comment(" Today profit: ", int(today_profit),"\n Period Profit: ", int(period_prof), " / " , int(prop_challenge_min_profit_usd), "\n Period Drawdown: ", int(period_drawdown), " / " , int(prop_challenge_max_drawdown_usd), "\n Risk: ", int(risk), " / " , int(prop_challenge_daily_loss_limit));
       if(period_prof>=prop_challenge_min_profit_usd*1.01 && risk>new_risk_if_prop_passed){
          CloseAllPositions(trade);
          DeleteAllOrders(trade);
