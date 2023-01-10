@@ -91,6 +91,9 @@ void PeriodData::update(void){
    if(profit<profit_min) profit_min = profit;
 }
 
+void PropChallengeCriteria::PropChallengeCriteria(void){
+
+}
 
 void PropChallengeCriteria::PropChallengeCriteria(double min_profit_usd_, double max_drawdown_usd_, ENUM_MONTH period_month_, int magic){
    min_profit_usd = min_profit_usd_;

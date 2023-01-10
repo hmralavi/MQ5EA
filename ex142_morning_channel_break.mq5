@@ -62,8 +62,8 @@ input int Magic = 142;  // EA's magic number
 CTrade trade;
 ENUM_TIMEFRAMES tf;
 int timezone_channel_handle, atr_handle, trend_handle;
-double risk = risk_original;
-PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
+double risk;
+PropChallengeCriteria prop_challenge_criteria;
 
 #define ZONE_UPPER_EDGE_BUFFER 0
 #define ZONE_LOWER_EDGE_BUFFER 2
@@ -79,6 +79,8 @@ int OnInit()
    ChartIndicatorAdd(0, 0, timezone_channel_handle);
    if(trailing_stoploss) atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
    if(trade_only_in_trend_direction) trend_handle = iCustom(_Symbol, trend_timeframe, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", 6, 1);
+   risk = risk_original;
+   prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
    return(INIT_SUCCEEDED);
 }
 
