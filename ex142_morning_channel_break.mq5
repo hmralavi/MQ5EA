@@ -88,7 +88,7 @@ void OnDeinit(const int reason){
 }
 
 void OnTick()
-{  
+{    
    if(equity_stop_trading>0){
       double acc_eq = AccountInfoDouble(ACCOUNT_EQUITY);
       if(acc_eq>=equity_stop_trading){
@@ -98,9 +98,13 @@ void OnTick()
       }
    }
    
+   double period_prof, period_drawdown, today_profit; 
    if(prop_challenge_criteria_enabled){
       prop_challenge_criteria.update();
-      double period_prof = prop_challenge_criteria.get_current_period_profit();
+      period_prof = prop_challenge_criteria.get_current_period_profit();
+      period_drawdown = prop_challenge_criteria.get_current_period_drawdown();
+      today_profit = prop_challenge_criteria.get_today_profit();
+      if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) Comment(" Today profit: ", round(today_profit),"\n Period Profit: ", round(period_prof), "\n Period Drawdown: ", round(period_drawdown), "\n Risk: ", round(risk));
       if(period_prof>=prop_challenge_min_profit_usd*1.01 && risk>new_risk_if_prop_passed){
          CloseAllPositions(trade);
          DeleteAllOrders(trade);
@@ -120,7 +124,7 @@ void OnTick()
    TimeToStruct(TimeCurrent(), current_date);
    if(trading_month>0) if(current_date.mon != trading_month) return;
    if(current_date.day<trading_day_start || current_date.day>trading_day_end) return; 
-   
+    
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
@@ -154,11 +158,9 @@ void OnTick()
       if(prop_challenge_criteria.is_current_period_passed()){
          risk = new_risk_if_prop_passed;
       }else{
-         double period_prof = prop_challenge_criteria.get_current_period_profit();
          double risk_to_reach_drawdown = period_prof + prop_challenge_max_drawdown_usd;
          risk = MathMin(risk_original, risk_to_reach_drawdown);
       }
-      double today_profit = prop_challenge_criteria.get_today_profit();
       if(today_profit-risk*1.01<=-prop_challenge_daily_loss_limit) return;
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
