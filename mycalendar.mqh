@@ -127,13 +127,15 @@ void CNews::CNews(datetime date_from_, datetime date_to_, string country_name_="
    date_to = date_to_;
    
    country_name = country_name_;
+   StringReplace(country_name, " ", "");
+   
    filter_title = filter_title_;
+   StringReplace(filter_title, " ", "");
    StringToLower(filter_title);
    string sep=";";
    ushort u_sep;
    u_sep = StringGetCharacter(sep, 0);
    nfilt = StringSplit(filter_title, u_sep, filt);
-
 
    if(MQLInfoInteger(MQL_TESTER)) read_file();
    else read_live();
@@ -217,6 +219,7 @@ bool CNews::is_title_pass_filter(string title){
       for(int k=0;k<nfilt;k++){
          string t = title;
          StringToLower(t);
+         StringReplace(t, " ", "");
          if(StringFind(t, filt[k], 0)>-1) return true;
       }
       return false;

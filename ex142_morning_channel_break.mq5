@@ -64,7 +64,7 @@ input int Magic = 142;  // EA's magic number
 input group "News Handling"
 input int stop_minutes_before_after_news = 0;
 input string country_name = "US";
-input string important_news = "CPI;Interest Rate";
+input string important_news = "CPI;Interest;Nonfarm;Unemployment;GDP;NFP;PMI";
 
 CTrade trade;
 ENUM_TIMEFRAMES tf;
@@ -136,10 +136,31 @@ void OnTick()
    TimeToStruct(TimeCurrent(), current_date);
    if(trading_month>0) if(current_date.mon != trading_month) return;
    if(current_date.day<trading_day_start || current_date.day>trading_day_end) return; 
-    
+   
+   
    ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
+   
+   
+   if(stop_minutes_before_after_news>0){
+      update_news();
+      int nnews = ArraySize(today_news.news);
+      if(nnews>0){
+         for(int inews=0;inews<nnews;inews++){
+            datetime newstime = today_news.news[inews].time;
+            if(MathAbs(TimeCurrent()-newstime)/60<=stop_minutes_before_after_news){
+               if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0){
+                  PrintFormat("Near news time '%s' with importance %d. closing the positions...", today_news.news[inews].title, today_news.news[inews].importance);
+                  DeleteAllOrders(trade);
+                  CloseAllPositions(trade);
+               }
+               return;
+            }
+         }
+      }
+   }
+   
    
    if(risk_free){
       int npos = ArraySize(pos_tickets);
@@ -178,13 +199,6 @@ void OnTick()
    }
    
    if(zone_type[0]!=2) return;
-   
-   if(stop_minutes_before_after_news>0){
-      update_news();
-      if(ArraySize(today_news.news)>0){
-         return;
-      }
-   }
    
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
