@@ -13,7 +13,7 @@ differences:
 
 #include <../Experts/mq5ea/mytools.mqh>
 #include <../Experts/mq5ea/prop_challenge_tools.mqh>
-
+#include <../Experts/mq5ea/mycalendar.mqh>
 
 enum ENUM_EXIT_POLICY{
    EXIT_POLICY_BREAKEVEN = 0,  // Breakeven if in loss/Instant exit if in profit
@@ -61,12 +61,17 @@ input group "EA settings"
 input double equity_stop_trading = 0;  // Stop trading if account equity is above this:
 input string PositionComment = "";
 input int Magic = 142;  // EA's magic number
+input group "News Handling"
+input int stop_minutes_before_after_news = 0;
+input string country_name = "US";
+input string important_news = "CPI;Interest Rate";
 
 CTrade trade;
 ENUM_TIMEFRAMES tf;
 int timezone_channel_handle, atr_handle, adx_handle;
 double risk;
 PropChallengeCriteria prop_challenge_criteria;
+CNews today_news;
 
 #define ZONE_UPPER_EDGE_BUFFER 0
 #define ZONE_LOWER_EDGE_BUFFER 2
@@ -174,6 +179,13 @@ void OnTick()
    
    if(zone_type[0]!=2) return;
    
+   if(stop_minutes_before_after_news>0){
+      update_news();
+      if(ArraySize(today_news.news)>0){
+         return;
+      }
+   }
+   
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double upper_edge[1];
@@ -187,7 +199,7 @@ void OnTick()
    bool sell_allowed = false;
    
    if(confirm_trending_market_with_adx && adx_timeframe>PERIOD_M30){
-      double adxmain[1], adxplus[1], adxminus[1];
+      double adxmain[], adxplus[], adxminus[];
       ArraySetAsSeries(adxmain, true);
       ArraySetAsSeries(adxplus, true);
       ArraySetAsSeries(adxminus, true);
@@ -317,4 +329,17 @@ double OnTester(void){
    for(int i=0;i<n;i++) Print(passed_periods[i]);
    Print("-----------------");
    return result;
+}
+
+
+void update_news(){
+   static int last_day;
+   MqlDateTime today;
+   TimeToStruct(TimeCurrent(), today);
+   if(last_day != today.day){
+      last_day = today.day;
+      today_news = CNews(0,0,country_name,important_news);
+      ArrayPrint(today_news.news);
+   }
+
 }
