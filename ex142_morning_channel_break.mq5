@@ -98,6 +98,7 @@ int OnInit()
 void OnDeinit(const int reason){
    IndicatorRelease(timezone_channel_handle);
    IndicatorRelease(atr_handle);
+   IndicatorRelease(adx_handle);
 }
 
 void OnTick()
@@ -119,8 +120,8 @@ void OnTick()
       today_profit = prop_challenge_criteria.get_today_profit();
       if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) Comment("EA: ", Magic, "\nToday profit: ", int(today_profit),"\nPeriod Profit: ", int(period_prof), " / " , int(prop_challenge_min_profit_usd), "\nPeriod Drawdown: ", int(period_drawdown), " / " , int(prop_challenge_max_drawdown_usd), "\nRisk: ", int(risk), " / " , int(prop_challenge_daily_loss_limit));
       if(period_prof>=prop_challenge_min_profit_usd*1.01 && risk>new_risk_if_prop_passed){
-         CloseAllPositions(trade);
          DeleteAllOrders(trade);
+         CloseAllPositions(trade);
       }
    }
    
@@ -186,6 +187,7 @@ void OnTick()
          TrailingStoploss(trade, pos_tickets[ipos], MathAbs(atr[0]-curr_price)/_Point, tp_rr1/_Point);         
       }
    }
+   
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;  
    
    if(!IsNewCandle(tf)) return;
