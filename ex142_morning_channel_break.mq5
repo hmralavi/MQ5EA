@@ -80,6 +80,7 @@ CNews today_news;
 int OnInit()
 {
    trade.SetExpertMagicNumber(Magic);
+   trade.LogLevel(LOG_LEVEL_NO);
    if(use_chart_timeframe) tf = _Period;
    else tf = costume_timeframe;
    timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", market_open_hour, market_open_minute, market_duration_minutes, market_terminate_hour, market_terminate_minute, no_new_trade_timerange_ratio);
@@ -149,9 +150,11 @@ void OnTick()
       if(nnews>0){
          for(int inews=0;inews<nnews;inews++){
             datetime newstime = today_news.news[inews].time;
-            if(MathAbs(TimeCurrent()-newstime)/60<=stop_minutes_before_after_news){
+            int nminutes = (TimeCurrent()-newstime)/60;
+            if(MathAbs(nminutes)<=stop_minutes_before_after_news){
                if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0){
-                  PrintFormat("Near news time '%s' with importance %d. closing the positions...", today_news.news[inews].title, today_news.news[inews].importance);
+                  PrintFormat("%d minutes %s news `%s` with importance %d. closing the positions...", 
+                              MathAbs(nminutes),nminutes>0?"after":"before",today_news.news[inews].title, today_news.news[inews].importance);
                   DeleteAllOrders(trade);
                   CloseAllPositions(trade);
                }
