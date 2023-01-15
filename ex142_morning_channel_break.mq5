@@ -20,9 +20,24 @@ enum ENUM_EXIT_POLICY{
    EXIT_POLICY_INSTANT = 1  // instant exit anyway
 };
 
+enum ENUM_CUSTOM_TIMEFRAMES{
+   CUSTOM_TIMEFRAMES_M1 = PERIOD_M1,  // 1 Min
+   CUSTOM_TIMEFRAMES_M5 = PERIOD_M5,  // 5 Min
+   CUSTOM_TIMEFRAMES_M10 = PERIOD_M10,  // 10 Min
+   CUSTOM_TIMEFRAMES_M15 = PERIOD_M15,   // 15 Min
+   CUSTOM_TIMEFRAMES_M30 = PERIOD_M30,  // 30 Min
+   CUSTOM_TIMEFRAMES_H1 = PERIOD_H1,  // 1 Hr
+   CUSTOM_TIMEFRAMES_H4 = PERIOD_H4,  // 4 Hr
+   CUSTOM_TIMEFRAMES_H6 = PERIOD_H6,  // 6 Hr
+   CUSTOM_TIMEFRAMES_H12 = PERIOD_H12,  // 12 Hr      
+   CUSTOM_TIMEFRAMES_D1 = PERIOD_D1,  // 1 Day
+   CUSTOM_TIMEFRAMES_W1 = PERIOD_W1,  // 1 Week
+   CUSTOM_TIMEFRAMES_MN1 = PERIOD_MN1,  // 1 Month
+};
+
 input group "Time"
 input bool use_chart_timeframe = false;
-input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M15;
+input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_M15;
 input double zone_start_hour = 3.0;
 input double zone_duration_hour = 1.5;
 input double zone_terminate_hour = 18.0;
@@ -32,7 +47,7 @@ input int trading_day_start = 1;
 input int trading_day_end = 31;
 input group "Trend"
 input bool confirm_trending_market_with_adx = true;
-input ENUM_TIMEFRAMES adx_timeframe = PERIOD_D1;
+input ENUM_CUSTOM_TIMEFRAMES adx_timeframe = CUSTOM_TIMEFRAMES_D1;
 input bool wilder_adx = true;
 input double adx_threshold = 25;
 input group "Risk"
@@ -80,13 +95,14 @@ int OnInit()
    trade.SetExpertMagicNumber(Magic);
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_chart_timeframe) tf = _Period;
-   else tf = costume_timeframe;
+   else tf = convert_tf(custom_timeframe);
    timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", zone_start_hour, zone_duration_hour, zone_terminate_hour, no_new_trade_timerange_ratio);
    ChartIndicatorAdd(0, 0, timezone_channel_handle);
    if(trailing_stoploss) atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
    if(confirm_trending_market_with_adx){
-      if(wilder_adx) adx_handle = iADXWilder(_Symbol, adx_timeframe, 14);
-      else adx_handle = iADX(_Symbol, adx_timeframe, 14);
+      ENUM_TIMEFRAMES adxtf = convert_tf(adx_timeframe);
+      if(wilder_adx) adx_handle = iADXWilder(_Symbol, adxtf, 14);
+      else adx_handle = iADX(_Symbol, adxtf, 14);
    }
    risk = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
@@ -359,4 +375,36 @@ void update_news(){
       ArrayPrint(today_news.news);
    }
 
+}
+
+
+ENUM_TIMEFRAMES convert_tf(ENUM_CUSTOM_TIMEFRAMES ctf){
+   switch(ctf){
+      case CUSTOM_TIMEFRAMES_M1:
+         return PERIOD_M1;   
+      case CUSTOM_TIMEFRAMES_M5:
+         return PERIOD_M5;
+      case CUSTOM_TIMEFRAMES_M10:
+         return PERIOD_M10;
+      case CUSTOM_TIMEFRAMES_M15:
+         return PERIOD_M15;
+      case CUSTOM_TIMEFRAMES_M30:
+         return PERIOD_M30;
+      case CUSTOM_TIMEFRAMES_H1:
+         return PERIOD_H1;                  
+      case CUSTOM_TIMEFRAMES_H4:
+         return PERIOD_H4;
+      case CUSTOM_TIMEFRAMES_H6:
+         return PERIOD_H6;
+      case CUSTOM_TIMEFRAMES_H12:
+         return PERIOD_H12;
+      case CUSTOM_TIMEFRAMES_D1:
+         return PERIOD_D1;
+      case CUSTOM_TIMEFRAMES_W1:
+         return PERIOD_W1;  
+      case CUSTOM_TIMEFRAMES_MN1:
+         return PERIOD_MN1;                                  
+      default:
+         return 0;                  
+   }
 }
