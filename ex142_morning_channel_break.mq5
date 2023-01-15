@@ -23,11 +23,9 @@ enum ENUM_EXIT_POLICY{
 input group "Time"
 input bool use_chart_timeframe = false;
 input ENUM_TIMEFRAMES costume_timeframe = PERIOD_M15;
-input int market_open_hour = 3;
-input int market_open_minute = 0;
-input int market_duration_minutes = 60;
-input int market_terminate_hour = 20;
-input int market_terminate_minute = 0;
+input double zone_start_hour = 3.0;
+input double zone_duration_hour = 1.5;
+input double zone_terminate_hour = 18.0;
 input double no_new_trade_timerange_ratio = 0.5;
 input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
 input int trading_day_start = 1;
@@ -83,7 +81,7 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_chart_timeframe) tf = _Period;
    else tf = costume_timeframe;
-   timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", market_open_hour, market_open_minute, market_duration_minutes, market_terminate_hour, market_terminate_minute, no_new_trade_timerange_ratio);
+   timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", zone_start_hour, zone_duration_hour, zone_terminate_hour, no_new_trade_timerange_ratio);
    ChartIndicatorAdd(0, 0, timezone_channel_handle);
    if(trailing_stoploss) atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
    if(confirm_trending_market_with_adx){

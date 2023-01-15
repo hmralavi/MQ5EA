@@ -28,11 +28,9 @@
 #property indicator_type5 DRAW_NONE
 #property indicator_label5    "ProfitPoints"
 
-input int zone_start_hour = 3;
-input int zone_start_minute = 0;
-input int zone_duration_minute = 60;
-input int zone_terminate_hour = 21;
-input int zone_terminate_minute = 0;
+input double zone_start_hour = 3.0;
+input double zone_duration_hour = 1.5;
+input double zone_terminate_hour = 18.0;
 input double no_new_trade_timerange_ratio = 0.5;
 input bool backtesting = false;
 input int n_days_backtest = 30;
@@ -109,19 +107,17 @@ int OnCalculate(const int rates_total,
       istart = prev_calculated-1;
    }
    for(int i=istart; i<rates_total; i++){
-      MqlDateTime stime, ttime;
+      MqlDateTime stime;
       datetime datetime_start, datetime_end, datetime_terminate;
       TimeToStruct(time[i], stime);
-      TimeToStruct(time[i], ttime);
-      stime.hour = zone_start_hour;
-      stime.min = zone_start_minute;
+      stime.hour = floor(zone_start_hour);
+      stime.min = (zone_start_hour-stime.hour)*60;
       stime.sec = 0;
-      ttime.hour = zone_terminate_hour;
-      ttime.min = zone_terminate_minute;
-      ttime.sec = 0;
       datetime_start = StructToTime(stime);
-      datetime_end = datetime_start + zone_duration_minute*60;
-      datetime_terminate = StructToTime(ttime);
+      if(time[i]-datetime_start<0) datetime_start -= PeriodSeconds(PERIOD_D1);
+      datetime_end = datetime_start + zone_duration_hour*60*60;
+      datetime_terminate = datetime_start + zone_terminate_hour*60*60;
+      
       ExtUpperEdge[i] = ExtUpperEdge[i-1];
       ExtLowerEdge[i] = ExtLowerEdge[i-1];
       ExtInPosition[i] = ExtInPosition[i-1];
