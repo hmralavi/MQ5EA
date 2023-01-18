@@ -235,5 +235,12 @@ void run_early_exit_policy(void){
 }
 
 double OnTester(void){
-   return prop_challenge_criteria.get_results();
+   datetime passed_periods[];
+   double result = prop_challenge_criteria.get_results(passed_periods);
+   int n = ArraySize(passed_periods);
+   Print("PASSED PERIODS");
+   Print("-----------------");
+   for(int i=0;i<n;i++) Print(passed_periods[i]);
+   Print("-----------------");
+   return result;   
 }
