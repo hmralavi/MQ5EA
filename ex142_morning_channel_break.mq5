@@ -51,7 +51,7 @@ input ENUM_CUSTOM_TIMEFRAMES adx_timeframe = CUSTOM_TIMEFRAMES_D1;
 input bool wilder_adx = true;
 input double adx_threshold = 25;
 input group "Risk"
-input double sl_offset_points = 50;  // sl offset points channel edge
+input double sl_offset_percent = 20;  // sl offset (percent of channel width)
 input double risk_original = 400;  // risk usd per trade
 input double Rr = 3;  // reward/risk ratio
 input group "Position"
@@ -253,7 +253,7 @@ void OnTick()
       double p;
       if(instant_entry) p = ask;
       else p = order_price_ratio * (p1_-p2_) + p2_;
-      double sl = p1_ - sl_offset_points*_Point;
+      double sl = p1_ - (MH-ML)*sl_offset_percent*0.01;
       double tp1 = p + 1 * Rr * (p-sl);
       double tp2 = p + 2 * Rr * (p-sl);
       double lot = calculate_lot_size((p-sl)/_Point, risk);
@@ -281,7 +281,7 @@ void OnTick()
       double p;
       if(instant_entry) p = bid;
       else p = order_price_ratio * (p1_-p2_) + p2_;
-      double sl = p1_ + sl_offset_points*_Point;
+      double sl = p1_ + (MH-ML)*sl_offset_percent*0.01;
       double tp1 = p + 1 * Rr * (p-sl);
       double tp2 = p + 2 * Rr * (p-sl);
       double lot = calculate_lot_size((sl-p)/_Point, risk);
