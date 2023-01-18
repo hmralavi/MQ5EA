@@ -257,7 +257,12 @@ void OnTick()
       double tp1 = p + 1 * Rr * (p-sl);
       double tp2 = p + 2 * Rr * (p-sl);
       double lot = calculate_lot_size((p-sl)/_Point, risk);
-      double lot_ = NormalizeDouble(floor(100*lot/2)/100, 2);
+      if(!close_only_half_size_on_tp) lot = normalize_volume(lot);
+      double lot_ = normalize_volume(lot/2);
+      p = NormalizeDouble(p, _Digits);
+      sl = NormalizeDouble(sl, _Digits);
+      tp1 = NormalizeDouble(tp1, _Digits);
+      tp2 = NormalizeDouble(tp2, _Digits);
       if(instant_entry){
          if(close_only_half_size_on_tp){
             trade.Buy(lot_, _Symbol, p, sl, tp1, PositionComment);
@@ -285,7 +290,12 @@ void OnTick()
       double tp1 = p + 1 * Rr * (p-sl);
       double tp2 = p + 2 * Rr * (p-sl);
       double lot = calculate_lot_size((sl-p)/_Point, risk);
-      double lot_ = NormalizeDouble(floor(100*lot/2)/100, 2);
+      if(!close_only_half_size_on_tp) lot = normalize_volume(lot);
+      double lot_ = normalize_volume(lot/2);
+      p = NormalizeDouble(p, _Digits);
+      sl = NormalizeDouble(sl, _Digits);
+      tp1 = NormalizeDouble(tp1, _Digits);
+      tp2 = NormalizeDouble(tp2, _Digits);
       if(instant_entry){
          if(close_only_half_size_on_tp){
             trade.Sell(lot_, _Symbol, p, sl, tp1, PositionComment);

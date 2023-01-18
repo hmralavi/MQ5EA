@@ -361,7 +361,27 @@ double calculate_lot_size(double slpoints, double riskusd){
    if(_Symbol=="XAUUSD" || _Symbol=="XAGUSD") multiplier = 10;
    double tick_val = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double lot = riskusd/(tick_val*multiplier*slpoints);
-   lot = floor(lot*100)/100;
-   lot = NormalizeDouble(lot, 2);
    return lot;
 }
+
+double normalize_volume(const double lot_){
+   int ndigits = get_number_digits(SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_STEP));
+   double lot = lot_;
+   lot = floor(lot*pow(10, ndigits))/pow(10, ndigits);
+   lot = NormalizeDouble(lot, ndigits);
+   return lot;    
+}
+
+
+int get_number_digits(const double number)
+  {
+//---
+   double num=number;
+   int count=0;
+   for(;count<8;count++) {
+      if(!((int)num-num))
+         return(count);
+      num*=10; }
+//---
+   return(count);
+  }    
