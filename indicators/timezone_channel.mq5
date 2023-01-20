@@ -8,12 +8,12 @@
 #property indicator_plots     5
 
 #property indicator_label1 "ZoneUpperEdge"
-#property indicator_color1 clrBlue, clrDeepSkyBlue, clrAqua
+#property indicator_color1 clrBlue, clrDeepSkyBlue, clrYellow
 #property indicator_type1  DRAW_COLOR_LINE
 #property indicator_width1 2
 
 #property indicator_label2 "ZoneLowerEdge"
-#property indicator_color2 clrBlue, clrDeepSkyBlue, clrAqua
+#property indicator_color2 clrBlue, clrDeepSkyBlue, clrYellow
 #property indicator_type2  DRAW_COLOR_LINE
 #property indicator_width2 2
 
@@ -32,6 +32,7 @@ input double zone_start_hour = 3.0;
 input double zone_duration_hour = 1.5;
 input double zone_terminate_hour = 18.0;
 input double no_new_trade_timerange_ratio = 0.5;
+input bool must_contain_peaks = false;
 input bool backtesting = false;
 input int n_days_backtest = 30;
 
@@ -92,6 +93,8 @@ int OnCalculate(const int rates_total,
                 const int &spread[])
   {
    int istart;
+   bool peaks_checked = false;
+   bool peaks_found = false;
    if(prev_calculated==0){
       ExtUpperEdge[0] = 0;
       ExtLowerEdge[0] = 1000000;
@@ -125,26 +128,36 @@ int OnCalculate(const int rates_total,
       if(ExtInPosition[i]==2 && high[i]>ExtUpperEdge[i]) ExtInPosition[i] = 0;
       if(time[i]>=datetime_start && time[i]<datetime_end){
          ExtZoneType[i] = 1;
-         ExtUpperEdgeColor[i] = 0;
-         ExtLowerEdgeColor[i] = 0;
          if(high[i]>ExtUpperEdge[i-1]) ExtUpperEdge[i] = high[i];
          if(low[i]<ExtLowerEdge[i-1]) ExtLowerEdge[i] = low[i];
       }else if(time[i]>=datetime_end && time[i]<=datetime_end+(datetime_terminate-datetime_end)*no_new_trade_timerange_ratio){
-         ExtZoneType[i] = 2;
-         ExtUpperEdgeColor[i] = 1;
-         ExtLowerEdgeColor[i] = 1;
-         if(close[i]>ExtUpperEdge[i] && open[i]<ExtUpperEdge[i]) ExtInPosition[i] = 1;
-         else if(close[i]<ExtLowerEdge[i] && open[i]>ExtLowerEdge[i]) ExtInPosition[i] = 2;
+         if(must_contain_peaks && !peaks_checked){
+            peaks_found = have_peaks(i, time, open, high, low, close);
+            peaks_checked = true;
+         }else if(!must_contain_peaks){
+            peaks_found = true;
+         }
+         if(peaks_found){
+            ExtZoneType[i] = 2;
+            if(close[i]>ExtUpperEdge[i] && open[i]<ExtUpperEdge[i]) ExtInPosition[i] = 1;
+            else if(close[i]<ExtLowerEdge[i] && open[i]>ExtLowerEdge[i]) ExtInPosition[i] = 2;
+         }else{
+            ExtZoneType[i] = 3;
+         }
       }else if(time[i]>datetime_end+(datetime_terminate-datetime_end)*no_new_trade_timerange_ratio && time[i]<datetime_terminate){
          ExtZoneType[i] = 3;
-         ExtUpperEdgeColor[i] = 2;
-         ExtLowerEdgeColor[i] = 2;
+         peaks_checked = false;
+         peaks_found = false;
       }else{
          ExtZoneType[i] = 0;
          ExtUpperEdge[i] = 0;
          ExtLowerEdge[i] = 1000000;
          ExtInPosition[i] = 0;
+         peaks_checked = false;
+         peaks_found = false;
       }
+      ExtUpperEdgeColor[i] = ExtZoneType[i]-1;
+      ExtLowerEdgeColor[i] = ExtZoneType[i]-1;
       if(ExtInPosition[i]>0){
          ExtInPositionLine[i] = MID_PRICE;
          ExtInPositionLineColor[i] = ExtInPosition[i]-1;
@@ -221,3 +234,39 @@ int OnCalculate(const int rates_total,
 }
 
 //+------------------------------------------------------------------+
+bool have_peaks(const int icandle,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[]){
+   if(icandle<100) return false;
+   int mst = -1; // market range start
+   int men = -1; // market range end  
+   int ncandle_peak = 2;              
+   for(int i=icandle;i>0;i--){
+      if(ExtZoneType[i-1]!=1 && ExtZoneType[i]==1 && mst<0) mst = i;
+      if(ExtZoneType[i-1]==1 && ExtZoneType[i]!=1 && men<0) men = i-1;
+      if(mst>-1 && men>-1) break;
+   }
+   if(mst<0 || men<0) return false;
+   if(men-ncandle_peak<=mst) return false;
+   double ph = ExtUpperEdge[men];
+   double pl = ExtLowerEdge[men];
+   int itop = -1;
+   int ibottom = -1;
+   for(int i=mst;i<=men-ncandle_peak;i++){
+      if(itop>-1 && ibottom>-1) break;
+      bool top_found = true;
+      bool bottom_found = true;
+      for(int j=i-ncandle_peak;j<=i+ncandle_peak;j++){
+         if(i==j) continue;
+         top_found = high[i]>=high[j] && top_found && high[i]==ph;
+         bottom_found = low[i]<=low[j] && bottom_found && low[i]==pl;         
+      }
+      if(top_found) itop = i;
+      if(bottom_found) ibottom = i;
+   }
+   if(itop>-1 && ibottom>-1) return true;
+   else return false;
+}
