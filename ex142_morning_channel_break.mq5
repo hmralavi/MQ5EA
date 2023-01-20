@@ -96,7 +96,7 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_chart_timeframe) tf = _Period;
    else tf = convert_tf(custom_timeframe);
-   timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", zone_start_hour, zone_duration_hour, zone_terminate_hour, no_new_trade_timerange_ratio);
+   timezone_channel_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\timezone_channel.ex5", zone_start_hour, zone_duration_hour, zone_terminate_hour, no_new_trade_timerange_ratio, false, false);
    ChartIndicatorAdd(0, 0, timezone_channel_handle);
    if(trailing_stoploss) atr_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\atr_channel.ex5", false, atr_period, atr_channel_deviation);
    if(confirm_trending_market_with_adx){

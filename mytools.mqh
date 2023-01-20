@@ -179,12 +179,12 @@ void DetectPeaksCoreFunc(PeakProperties& peaks[], MqlRates& mrate[], int ncandle
 
 }
 
-bool GetExtremumPeak_notused(PeakProperties& extremum_peak, PeakProperties& peaks[], bool findMax){
+bool GetExtremumPeak(PeakProperties& extremum_peak, const PeakProperties& peaks[], bool findMax){
    int npeaks = ArraySize(peaks);
    bool success = false;
    for(int i=0;i<npeaks;i++){
-      bool cond1 = findMax && peaks[i].isTop && (peaks[i].main_candle.high>extremum_peak.main_candle.high || i==0);
-      bool cond2 = !findMax && !peaks[i].isTop && (peaks[i].main_candle.low<extremum_peak.main_candle.low || i==0);
+      bool cond1 = findMax && peaks[i].isTop && (peaks[i].main_candle.high>extremum_peak.main_candle.high || !success);
+      bool cond2 = !findMax && !peaks[i].isTop && (peaks[i].main_candle.low<extremum_peak.main_candle.low || !success);
       if(cond1 || cond2){
          extremum_peak = peaks[i];
          success = true;

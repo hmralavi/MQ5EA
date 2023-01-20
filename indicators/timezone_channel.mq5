@@ -3,6 +3,8 @@
 //|                                      Copyright 2020, CompanyName |
 //|                                       http://www.companyname.net |
 //+------------------------------------------------------------------+
+#include <../Experts/mq5ea/mytools.mqh>
+
 #property indicator_chart_window
 #property indicator_buffers   10
 #property indicator_plots     5
@@ -243,30 +245,35 @@ bool have_peaks(const int icandle,
    if(icandle<100) return false;
    int mst = -1; // market range start
    int men = -1; // market range end  
-   int ncandle_peak = 2;              
+   int ncandle_peak = 2;           
    for(int i=icandle;i>0;i--){
       if(ExtZoneType[i-1]!=1 && ExtZoneType[i]==1 && mst<0) mst = i;
       if(ExtZoneType[i-1]==1 && ExtZoneType[i]!=1 && men<0) men = i-1;
       if(mst>-1 && men>-1) break;
    }
    if(mst<0 || men<0) return false;
-   if(men-ncandle_peak<=mst) return false;
-   double ph = ExtUpperEdge[men];
-   double pl = ExtLowerEdge[men];
-   int itop = -1;
-   int ibottom = -1;
-   for(int i=mst;i<=men-ncandle_peak;i++){
-      if(itop>-1 && ibottom>-1) break;
-      bool top_found = true;
-      bool bottom_found = true;
-      for(int j=i-ncandle_peak;j<=i+ncandle_peak;j++){
-         if(i==j) continue;
-         top_found = high[i]>=high[j] && top_found && high[i]==ph;
-         bottom_found = low[i]<=low[j] && bottom_found && low[i]==pl;         
-      }
-      if(top_found) itop = i;
-      if(bottom_found) ibottom = i;
+   if(men-ncandle_peak<=mst) return false;   
+   
+   MqlRates mrates[];   
+   ArrayResize(mrates, men-mst+1+ncandle_peak);
+   int j = 0;
+   for(int i=mst-ncandle_peak;i<=men;i++){
+      mrates[j].time = time[i];
+      mrates[j].open = open[i];
+      mrates[j].high = high[i];
+      mrates[j].low = low[i];
+      mrates[j].close = close[i];
+      j++;
    }
-   if(itop>-1 && ibottom>-1) return true;
-   else return false;
+   
+   PeakProperties peaks[], max_peak, min_peak;
+   DetectPeaksCoreFunc(peaks, mrates, ncandle_peak, 0, -1, true);
+   bool top_found = GetExtremumPeak(max_peak, peaks, true);
+   bool bottom_found = GetExtremumPeak(min_peak, peaks, false);
+   if(top_found && bottom_found){
+      ExtUpperEdge[icandle] = max_peak.main_candle.high;
+      ExtLowerEdge[icandle] = min_peak.main_candle.low;
+      return true;
+   }
+   return false;
 }

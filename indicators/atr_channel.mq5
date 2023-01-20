@@ -5,7 +5,7 @@
 #property indicator_plots   3
 
 #property indicator_type1     DRAW_COLOR_CANDLES
-#property indicator_color1    clrGreen, clrRed
+#property indicator_color1    C'38,166,154', C'239,83,80'
 #property indicator_label1    "HAO;HAH;HAL;HAC"
 
 #property indicator_type2   DRAW_LINE
