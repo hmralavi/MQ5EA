@@ -373,15 +373,25 @@ double normalize_volume(const double lot_){
 }
 
 
-int get_number_digits(const double number)
-  {
-//---
+int get_number_digits(const double number){
    double num=number;
    int count=0;
    for(;count<8;count++) {
       if(!((int)num-num))
          return(count);
       num*=10; }
-//---
    return(count);
-  }    
+}
+
+double get_average_spread(){
+   MqlRates rates[];
+   int n = 10;
+   CopyRates(_Symbol, PERIOD_M1, 0, n, rates);
+   double spread = 0;
+   for(int i=0;i<n;i++){
+      spread += rates[i].spread;
+   }
+   spread /= n;
+   spread = round(spread)*_Point;
+   return spread;
+}
