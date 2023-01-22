@@ -61,6 +61,7 @@ PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, pro
 
 #define HIGH_BUFFER 1
 #define LOW_BUFFER 2
+#define BOS_BUFFER 5
 #define TREND_BUFFER 8
 #define PEAK_BUFFER 9
 #define PEAK_BROKEN_BUFFER 10
@@ -96,20 +97,27 @@ void OnTick()
       }
    }
    
+   double period_prof, period_drawdown, today_profit; 
    if(prop_challenge_criteria_enabled){
       prop_challenge_criteria.update();
-      if(prop_challenge_criteria.is_current_period_passed() && risk>=risk_original){
-         CloseAllPositions(trade);
+      period_prof = prop_challenge_criteria.get_current_period_profit();
+      period_drawdown = prop_challenge_criteria.get_current_period_drawdown();
+      today_profit = prop_challenge_criteria.get_today_profit();
+      if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) Comment("EA: ", Magic, "\nToday profit: ", int(today_profit),"\nPeriod Profit: ", int(period_prof), " / " , int(prop_challenge_min_profit_usd), "\nPeriod Drawdown: ", int(period_drawdown), " / " , int(prop_challenge_max_drawdown_usd), "\nRisk: ", int(risk), " / " , int(prop_challenge_daily_loss_limit));
+      if(period_prof>=prop_challenge_min_profit_usd*1.01 && risk>new_risk_if_prop_passed){
          DeleteAllOrders(trade);
+         CloseAllPositions(trade);
       }
    }
    
    if(!IsNewCandle(tf)) return;   
       
-   double trend[], higher_trend[];
+   double trend[], bos[], higher_trend[];
    ArraySetAsSeries(trend, true);
+   ArraySetAsSeries(bos, true);
    ArraySetAsSeries(higher_trend, true);
    CopyBuffer(ind_handle1, TREND_BUFFER, 1, 2, trend);
+   CopyBuffer(ind_handle1, BOS_BUFFER, 1, 1, bos);
    CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
    
    if(trend[0]!=trend[1]) run_early_exit_policy();
@@ -118,17 +126,25 @@ void OnTick()
       MqlDateTime current_date;
       TimeToStruct(TimeCurrent(), current_date);
       if(current_date.mon != trading_month) return;
-   }
+   }   
    
    if(prop_challenge_criteria_enabled){
-      if(prop_challenge_criteria.is_current_period_passed()) risk = new_risk_if_prop_passed;
-      else risk = risk_original;
-      double today_profit = prop_challenge_criteria.get_today_profit();
+      if(prop_challenge_criteria.is_current_period_passed()){
+         risk = new_risk_if_prop_passed;
+      }else{
+         double risk_to_reach_drawdown = period_prof + prop_challenge_max_drawdown_usd;
+         risk = MathMin(risk_original, risk_to_reach_drawdown);
+      }
       if(today_profit-risk*1.01<=-prop_challenge_daily_loss_limit) return;
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
    
-   if(trend[0]==1 && trend[1]==2 && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
+   ulong pos_tickets[], ord_tickets[];
+   GetMyPositionsTickets(Magic, pos_tickets);
+   GetMyOrdersTickets(Magic, ord_tickets);
+   if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;
+   
+   if(trend[0]==1 && bos[0]==1 && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double sl = find_nearest_unbroken_peak_price(false, 0, ask);
       if(sl<0) return;
@@ -148,7 +164,7 @@ void OnTick()
       double lot_size = normalize_volume(calculate_lot_size((ask-sl)/_Point, risk));
       trade.Buy(lot_size, _Symbol, ask, sl, tp, PositionComment);
    
-   }else if(trend[0]==2 && trend[1]==1 && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
+   }else if(trend[0]==2 && bos[0]==1 && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double sl = find_nearest_unbroken_peak_price(true, bid);
       if(sl<0) return;
@@ -156,7 +172,7 @@ void OnTick()
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
          double mintp = bid - (sl - bid) * Rr;
-         double tp = find_nearest_unbroken_peak_price(false, 0, mintp);
+         tp = find_nearest_unbroken_peak_price(false, 0, mintp);
          if(tp<0) return;
          tp = tp + sl_points_offset*_Point;
       }else if(tp_policy == TP_POLICY_BASED_ON_FIXED_RR){
