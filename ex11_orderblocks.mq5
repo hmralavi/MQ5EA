@@ -82,7 +82,7 @@ void OnTick()
       npassed_candles++;
       if(!CandleConfirmation(true)) return;
       double sl = touched_ob_low - SlPoints * _Point;
-      double tp = ask_price + RRatio * SlPoints * _Point;               
+      double tp = ask_price + (ask_price-sl) * RRatio;               
       _slpoints = (bid_price - sl)/_Point;   
       if(_slpoints<100) trade.Buy(LotSize, _Symbol, ask_price, sl, tp);
       ready_for_buy = false;
@@ -94,7 +94,7 @@ void OnTick()
       npassed_candles++;
       if(!CandleConfirmation(false)) return;
       double sl = touched_ob_high + SlPoints * _Point;
-      double tp = bid_price - RRatio * SlPoints * _Point;          
+      double tp = bid_price - (sl-bid_price) * RRatio;          
       _slpoints = (sl - ask_price)/_Point;     
       if(_slpoints<100) trade.Sell(LotSize, _Symbol, bid_price, sl, tp); 
       ready_for_sell = false;
