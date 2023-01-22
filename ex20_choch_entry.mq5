@@ -25,9 +25,9 @@ enum ENUM_TP_POLICY{
 
 input group "Time settings"
 input bool use_costume_timeframe = false;
-input ENUM_TIMEFRAMES costume_timeframe = PERIOD_H1;
+input ENUM_CUSTOM_TIMEFRAMES costume_timeframe = CUSTOM_TIMEFRAMES_H1;
 input bool confirm_with_higher_timeframe = true;
-input ENUM_TIMEFRAMES higher_timeframe = PERIOD_D1;
+input ENUM_CUSTOM_TIMEFRAMES higher_timeframe = CUSTOM_TIMEFRAMES_D1;
 input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
 
 input group "Indicator settings"
@@ -69,10 +69,10 @@ PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, pro
 int OnInit()
 {
    trade.SetExpertMagicNumber(Magic);
-   if(use_costume_timeframe) tf = costume_timeframe;
+   if(use_costume_timeframe) tf = convert_tf(costume_timeframe);
    else tf = _Period;
    ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
-   ind_handle2 = iCustom(_Symbol, higher_timeframe, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
+   ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
    ChartIndicatorAdd(0, 0, ind_handle1);
    ChartIndicatorAdd(0, 0, ind_handle2);
    return(INIT_SUCCEEDED);

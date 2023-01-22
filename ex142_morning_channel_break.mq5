@@ -20,21 +20,6 @@ enum ENUM_EXIT_POLICY{
    EXIT_POLICY_INSTANT = 1  // instant exit anyway
 };
 
-enum ENUM_CUSTOM_TIMEFRAMES{
-   CUSTOM_TIMEFRAMES_M1 = PERIOD_M1,  // 1 Min
-   CUSTOM_TIMEFRAMES_M5 = PERIOD_M5,  // 5 Min
-   CUSTOM_TIMEFRAMES_M10 = PERIOD_M10,  // 10 Min
-   CUSTOM_TIMEFRAMES_M15 = PERIOD_M15,   // 15 Min
-   CUSTOM_TIMEFRAMES_M30 = PERIOD_M30,  // 30 Min
-   CUSTOM_TIMEFRAMES_H1 = PERIOD_H1,  // 1 Hr
-   CUSTOM_TIMEFRAMES_H4 = PERIOD_H4,  // 4 Hr
-   CUSTOM_TIMEFRAMES_H6 = PERIOD_H6,  // 6 Hr
-   CUSTOM_TIMEFRAMES_H12 = PERIOD_H12,  // 12 Hr      
-   CUSTOM_TIMEFRAMES_D1 = PERIOD_D1,  // 1 Day
-   CUSTOM_TIMEFRAMES_W1 = PERIOD_W1,  // 1 Week
-   CUSTOM_TIMEFRAMES_MN1 = PERIOD_MN1,  // 1 Month
-};
-
 input group "Time"
 input bool use_chart_timeframe = false;
 input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_M15;
@@ -385,36 +370,4 @@ void update_news(){
       ArrayPrint(today_news.news);
    }
 
-}
-
-
-ENUM_TIMEFRAMES convert_tf(ENUM_CUSTOM_TIMEFRAMES ctf){
-   switch(ctf){
-      case CUSTOM_TIMEFRAMES_M1:
-         return PERIOD_M1;   
-      case CUSTOM_TIMEFRAMES_M5:
-         return PERIOD_M5;
-      case CUSTOM_TIMEFRAMES_M10:
-         return PERIOD_M10;
-      case CUSTOM_TIMEFRAMES_M15:
-         return PERIOD_M15;
-      case CUSTOM_TIMEFRAMES_M30:
-         return PERIOD_M30;
-      case CUSTOM_TIMEFRAMES_H1:
-         return PERIOD_H1;                  
-      case CUSTOM_TIMEFRAMES_H4:
-         return PERIOD_H4;
-      case CUSTOM_TIMEFRAMES_H6:
-         return PERIOD_H6;
-      case CUSTOM_TIMEFRAMES_H12:
-         return PERIOD_H12;
-      case CUSTOM_TIMEFRAMES_D1:
-         return PERIOD_D1;
-      case CUSTOM_TIMEFRAMES_W1:
-         return PERIOD_W1;  
-      case CUSTOM_TIMEFRAMES_MN1:
-         return PERIOD_MN1;                                  
-      default:
-         return 0;                  
-   }
 }
