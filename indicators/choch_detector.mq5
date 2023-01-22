@@ -1,19 +1,24 @@
 //--- indicator settings
 #property indicator_chart_window
-#property indicator_buffers   10
-#property indicator_plots     3
+#property indicator_buffers   11
+#property indicator_plots     4
+
 #property indicator_type1     DRAW_COLOR_CANDLES
 #property indicator_color1    clrLightGray, clrGray, clrLightGreen, clrLimeGreen, clrCoral, clrCrimson  // neutral trend; neutral trend peak; bullish trend; peak in bullish trend; bearish trend; peak in bearish trend
 #property indicator_label1    "Open;High;Low;Close"
 
 #property indicator_type2 DRAW_NONE
-#property indicator_label2    "WinRate%"
+#property indicator_label2    "BOS"
 
 #property indicator_type3 DRAW_NONE
-#property indicator_label3    "ProfitPoints"
+#property indicator_label3    "WinRate%"
+
+#property indicator_type4 DRAW_NONE
+#property indicator_label4    "ProfitPoints"
 
 input int n_candles_peak = 6;
 input int static_dynamic_support_resistant = 0;  // set 0 for both static and trendline, set 1 for static only, set 2 for trendline only
+input bool backtesting = false;
 input int n_trend_change_win_rate = 10;
 
 //--- indicator buffers
@@ -27,6 +32,7 @@ double ExtProfitPointsbuffer[];
 double ExtTrendbuffer[]; // 0 neutral, 1 bullish, 2 bearish
 double ExtPeakBuffer[]; // 0 neutral, 1 top, 2 bottom
 double ExtPeakBrokenBuffer[];
+double ExtBosBuffer[];
 
 int PeakIndex[];
 int TrendChangedIndex[];
@@ -41,11 +47,12 @@ void OnInit()
    SetIndexBuffer(2,ExtLBuffer,INDICATOR_DATA);
    SetIndexBuffer(3,ExtCBuffer,INDICATOR_DATA);
    SetIndexBuffer(4,ExtColorBuffer,INDICATOR_COLOR_INDEX);
-   SetIndexBuffer(5,ExtWinRateBuffer,INDICATOR_DATA); 
-   SetIndexBuffer(6,ExtProfitPointsbuffer,INDICATOR_DATA); 
-   SetIndexBuffer(7,ExtTrendbuffer,INDICATOR_CALCULATIONS);
-   SetIndexBuffer(8,ExtPeakBuffer,INDICATOR_CALCULATIONS);
-   SetIndexBuffer(9,ExtPeakBrokenBuffer,INDICATOR_CALCULATIONS); 
+   SetIndexBuffer(5,ExtBosBuffer,INDICATOR_DATA);
+   SetIndexBuffer(6,ExtWinRateBuffer,INDICATOR_DATA); 
+   SetIndexBuffer(7,ExtProfitPointsbuffer,INDICATOR_DATA); 
+   SetIndexBuffer(8,ExtTrendbuffer,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(9,ExtPeakBuffer,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(10,ExtPeakBrokenBuffer,INDICATOR_CALCULATIONS); 
    
 //---
    IndicatorSetInteger(INDICATOR_DIGITS,_Digits);
@@ -83,6 +90,7 @@ int OnCalculate(const int rates_total,
       ExtTrendbuffer[0]=0;
       ExtPeakBuffer[0]=0;
       ExtPeakBrokenBuffer[0]=0;
+      ExtBosBuffer[0]=0;
       start = 1;
    }else{
       start = prev_calculated - 2;
@@ -119,6 +127,7 @@ int OnCalculate(const int rates_total,
       }
       //--detect choch
       ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
+      ExtBosBuffer[i] = 0;
       int npeaks = ArraySize(PeakIndex);     
       for(int j=0;j<npeaks;j++){
          int pindex = PeakIndex[j];   
@@ -147,7 +156,8 @@ int OnCalculate(const int rates_total,
             if(static_dynamic_support_resistant==2) trend_line_broken = trend_line_broken2;
             if(trend_line_broken){
                ExtTrendbuffer[i] = 1;
-               ExtPeakBrokenBuffer[pindex] = 1;          
+               ExtPeakBrokenBuffer[pindex] = 1;    
+               ExtBosBuffer[i] = 1;      
             }
             
          }else if(ExtPeakBuffer[pindex]==2){
@@ -174,33 +184,36 @@ int OnCalculate(const int rates_total,
             if(static_dynamic_support_resistant==2) trend_line_broken = trend_line_broken2;
             if(trend_line_broken){
                ExtTrendbuffer[i] = 2;
-               ExtPeakBrokenBuffer[pindex] = 1;          
+               ExtPeakBrokenBuffer[pindex] = 1;
+               ExtBosBuffer[i] = 1;
             }
          }
       }
       ExtColorBuffer[i] = 2*ExtTrendbuffer[i];
             
       //--- update win rate
-      int ntrendchanged = ArraySize(TrendChangedIndex);
-      if(ExtTrendbuffer[i] != ExtTrendbuffer[i-1]){
-         ArrayResize(TrendChangedIndex, ntrendchanged+1);
-         TrendChangedIndex[ntrendchanged] = i;    
-         ntrendchanged++;   
-      }
-      double wins = 0;
-      double profit_points = 0;
-      for(int k=ntrendchanged-n_trend_change_win_rate-1;k<ntrendchanged-1;k++){
-         if(k<0) continue;
-         int startindex = TrendChangedIndex[k];
-         int endindex = TrendChangedIndex[k+1];
-         if(close[endindex]>close[startindex] && ExtTrendbuffer[startindex]==1) wins++;
-         if(close[endindex]<close[startindex] && ExtTrendbuffer[startindex]==2) wins++;
-         if(ExtTrendbuffer[startindex]==1) profit_points += (close[endindex] - close[startindex]) / _Point;
-         if(ExtTrendbuffer[startindex]==2) profit_points += (close[startindex] - close[endindex]) / _Point;
-      }
-      double winrate = NormalizeDouble(100*wins/n_trend_change_win_rate, 1);
-      ExtWinRateBuffer[i] = winrate;
-      ExtProfitPointsbuffer[i] = profit_points;
+      if(backtesting){
+         int ntrendchanged = ArraySize(TrendChangedIndex);
+         if(ExtTrendbuffer[i] != ExtTrendbuffer[i-1]){
+            ArrayResize(TrendChangedIndex, ntrendchanged+1);
+            TrendChangedIndex[ntrendchanged] = i;    
+            ntrendchanged++;   
+         }
+         double wins = 0;
+         double profit_points = 0;
+         for(int k=ntrendchanged-n_trend_change_win_rate-1;k<ntrendchanged-1;k++){
+            if(k<0) continue;
+            int startindex = TrendChangedIndex[k];
+            int endindex = TrendChangedIndex[k+1];
+            if(close[endindex]>close[startindex] && ExtTrendbuffer[startindex]==1) wins++;
+            if(close[endindex]<close[startindex] && ExtTrendbuffer[startindex]==2) wins++;
+            if(ExtTrendbuffer[startindex]==1) profit_points += (close[endindex] - close[startindex]) / _Point;
+            if(ExtTrendbuffer[startindex]==2) profit_points += (close[startindex] - close[endindex]) / _Point;
+         }
+         double winrate = NormalizeDouble(100*wins/n_trend_change_win_rate, 1);
+         ExtWinRateBuffer[i] = winrate;
+         ExtProfitPointsbuffer[i] = profit_points;
+      }      
    }
    //---
    return(rates_total);

@@ -61,9 +61,9 @@ PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, pro
 
 #define HIGH_BUFFER 1
 #define LOW_BUFFER 2
-#define TREND_BUFFER 7
-#define PEAK_BUFFER 8
-#define PEAK_BROKEN_BUFFER 9
+#define TREND_BUFFER 8
+#define PEAK_BUFFER 9
+#define PEAK_BROKEN_BUFFER 10
 
 int OnInit()
 {
@@ -145,7 +145,7 @@ void OnTick()
       sl = NormalizeDouble(sl ,_Digits);
       tp = NormalizeDouble(tp, _Digits);
       double _Rr = (tp-ask)/(ask-sl);
-      double lot_size = calculate_lot_size((ask-sl)/_Point, risk);
+      double lot_size = normalize_volume(calculate_lot_size((ask-sl)/_Point, risk));
       trade.Buy(lot_size, _Symbol, ask, sl, tp, PositionComment);
    
    }else if(trend[0]==2 && trend[1]==1 && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
@@ -165,7 +165,7 @@ void OnTick()
       sl = NormalizeDouble(sl ,_Digits);
       tp = NormalizeDouble(tp, _Digits);
       double _Rr = (bid-tp)/(sl-bid);
-      double lot_size = calculate_lot_size((sl-bid)/_Point, risk);
+      double lot_size = normalize_volume(calculate_lot_size((sl-bid)/_Point, risk));
       trade.Sell(lot_size, _Symbol, bid, sl, tp, PositionComment);    
    }
 
