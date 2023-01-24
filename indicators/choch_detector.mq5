@@ -125,9 +125,12 @@ int OnCalculate(const int rates_total,
             ExtColorBuffer[jpeak] = ExtTrendbuffer[jpeak]*2 + 1;        
          }         
       }
-      //--detect choch
+      
+      //--------------------------------
+      //-------detect choch and bos-----
+      //--------------------------------
       ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
-      ExtBosBuffer[i] = 0;
+      ExtBosBuffer[i] = ExtBosBuffer[i-1];
       int npeaks = ArraySize(PeakIndex);     
       for(int j=0;j<npeaks;j++){
          int pindex = PeakIndex[j];   
@@ -136,28 +139,31 @@ int OnCalculate(const int rates_total,
             bool trend_line_broken = false;
             bool trend_line_broken1 = false;
             bool trend_line_broken2 = false;
-            trend_line_broken1 = close[i]>high[pindex];            
-            int pindex_before = -1;
-            for(int k=j-1;k>=0;k--){
-               if(ExtPeakBuffer[PeakIndex[k]]==1 && high[PeakIndex[k]]>high[pindex]){
-                  bool trend_change = false;
-                  for(int m=PeakIndex[k]+1;m<i;m++){
-                     trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+            trend_line_broken1 = close[i]>high[pindex];
+            if(static_dynamic_support_resistant==0 || static_dynamic_support_resistant==2){
+               int pindex_before = -1;
+               for(int k=j-1;k>=0;k--){
+                  if(ExtPeakBuffer[PeakIndex[k]]==1 && high[PeakIndex[k]]>high[pindex]){
+                     bool trend_change = false;
+                     for(int m=PeakIndex[k]+1;m<i;m++){
+                        trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+                        if(trend_change) break;
+                     }
                      if(trend_change) break;
+                     pindex_before = PeakIndex[k];
+                     break;
                   }
-                  if(trend_change) break;
-                  pindex_before = PeakIndex[k];
-                  break;
                }
+               if(pindex_before>0) trend_line_broken2 = close[i]>calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
             }
-            if(pindex_before>0) trend_line_broken2 = close[i]>calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
             if(static_dynamic_support_resistant==0) trend_line_broken = trend_line_broken1 || trend_line_broken2;
             if(static_dynamic_support_resistant==1) trend_line_broken = trend_line_broken1;
             if(static_dynamic_support_resistant==2) trend_line_broken = trend_line_broken2;
             if(trend_line_broken){
                ExtTrendbuffer[i] = 1;
-               ExtPeakBrokenBuffer[pindex] = 1;    
-               ExtBosBuffer[i] = 1;      
+               ExtPeakBrokenBuffer[pindex] = 1;
+               if(ExtTrendbuffer[i-1]!=1) ExtBosBuffer[i] = 1;
+               else ExtBosBuffer[i] = ExtBosBuffer[i-1]+1;
             }
             
          }else if(ExtPeakBuffer[pindex]==2){
@@ -165,27 +171,30 @@ int OnCalculate(const int rates_total,
             bool trend_line_broken1 = false;
             bool trend_line_broken2 = false;            
             trend_line_broken1 = close[i]<low[pindex];
-            int pindex_before = -1;
-            for(int k=j-1;k>=0;k--){
-               if(ExtPeakBuffer[PeakIndex[k]]==2 && low[PeakIndex[k]]<low[pindex]){
-                  bool trend_change = false;
-                  for(int m=PeakIndex[k]+1;m<i;m++){
-                     trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+            if(static_dynamic_support_resistant==0 || static_dynamic_support_resistant==2){
+               int pindex_before = -1;
+               for(int k=j-1;k>=0;k--){
+                  if(ExtPeakBuffer[PeakIndex[k]]==2 && low[PeakIndex[k]]<low[pindex]){
+                     bool trend_change = false;
+                     for(int m=PeakIndex[k]+1;m<i;m++){
+                        trend_change = trend_change || ExtTrendbuffer[m]!=ExtTrendbuffer[pindex];
+                        if(trend_change) break;
+                     }
                      if(trend_change) break;
+                     pindex_before = PeakIndex[k];
+                     break;
                   }
-                  if(trend_change) break;
-                  pindex_before = PeakIndex[k];
-                  break;
-               }
-            }               
-            if(pindex_before>0) trend_line_broken2 = close[i]<calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);           
+               }               
+               if(pindex_before>0) trend_line_broken2 = close[i]<calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);
+            }
             if(static_dynamic_support_resistant==0) trend_line_broken = trend_line_broken1 || trend_line_broken2;
             if(static_dynamic_support_resistant==1) trend_line_broken = trend_line_broken1;
             if(static_dynamic_support_resistant==2) trend_line_broken = trend_line_broken2;
             if(trend_line_broken){
                ExtTrendbuffer[i] = 2;
                ExtPeakBrokenBuffer[pindex] = 1;
-               ExtBosBuffer[i] = 1;
+               if(ExtTrendbuffer[i-1]!=2) ExtBosBuffer[i] = 1;
+               else ExtBosBuffer[i] = ExtBosBuffer[i-1]+1;
             }
          }
       }
