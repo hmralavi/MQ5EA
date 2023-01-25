@@ -24,7 +24,7 @@ enum ENUM_TP_POLICY{
 };
 
 enum ENUM_ENTER_POLICY{
-   ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE = 0,  // instant entry on bos candle's close
+   ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE = 0,  // instant entry on candle close
    ENTER_POLICY_ORDER_ON_BROKEN_LEVEL = 1  // pending order on the broken level
 };
 
