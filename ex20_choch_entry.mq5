@@ -24,8 +24,8 @@ enum ENUM_TP_POLICY{
 };
 
 input group "Time settings"
-input bool use_costume_timeframe = false;
-input ENUM_CUSTOM_TIMEFRAMES costume_timeframe = CUSTOM_TIMEFRAMES_H1;
+input bool use_chart_timeframe = false;
+input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_H1;
 input bool confirm_with_higher_timeframe = true;
 input ENUM_CUSTOM_TIMEFRAMES higher_timeframe = CUSTOM_TIMEFRAMES_D1;
 input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
@@ -40,6 +40,10 @@ input double risk_original = 100;  // risk usd per trade
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
 input ENUM_TP_POLICY tp_policy = TP_POLICY_BASED_ON_PEAK;
 input double Rr = 2;  // fixed(minimum) reward/risk ratio 
+
+input group "Trailing Stoploss"
+input bool trailing_stoploss = false;
+input double tsl_offset_points = 300;
 
 input group "Optimization criteria for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
@@ -56,8 +60,8 @@ input int Magic = 200;  // EA's magic number
 CTrade trade;
 int ind_handle1, ind_handle2;
 ENUM_TIMEFRAMES tf;
-double risk = risk_original;
-PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
+double risk;
+PropChallengeCriteria prop_challenge_criteria;
 
 #define HIGH_BUFFER 1
 #define LOW_BUFFER 2
@@ -69,12 +73,15 @@ PropChallengeCriteria prop_challenge_criteria(prop_challenge_min_profit_usd, pro
 int OnInit()
 {
    trade.SetExpertMagicNumber(Magic);
-   if(use_costume_timeframe) tf = convert_tf(costume_timeframe);
-   else tf = _Period;
+   trade.LogLevel(LOG_LEVEL_NO);
+   if(use_chart_timeframe) tf = _Period;
+   else tf = convert_tf(custom_timeframe);
    ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
    ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
    ChartIndicatorAdd(0, 0, ind_handle1);
    ChartIndicatorAdd(0, 0, ind_handle2);
+   risk = risk_original;
+   prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
    return(INIT_SUCCEEDED);
 }
 
@@ -110,6 +117,24 @@ void OnTick()
       }
    }
    
+   ulong pos_tickets[], ord_tickets[];
+   GetMyPositionsTickets(Magic, pos_tickets);
+   GetMyOrdersTickets(Magic, ord_tickets);
+   
+   if(trailing_stoploss){
+      int npos = ArraySize(pos_tickets);
+      for(int ipos=0;ipos<npos;ipos++){
+         PositionSelectByTicket(pos_tickets[ipos]);
+         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
+         double curr_sl = PositionGetDouble(POSITION_SL);
+         double trigger_points = 0;
+         if(pos_type==POSITION_TYPE_BUY && curr_sl<open_price) trigger_points = (open_price-curr_sl)/_Point;
+         if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price) trigger_points = (curr_sl-open_price)/_Point;
+         TrailingStoploss(trade, pos_tickets[ipos], tsl_offset_points, trigger_points);         
+      }
+   }   
+   
    if(!IsNewCandle(tf)) return;   
       
    double trend[], bos[], higher_trend[];
@@ -117,7 +142,7 @@ void OnTick()
    ArraySetAsSeries(bos, true);
    ArraySetAsSeries(higher_trend, true);
    CopyBuffer(ind_handle1, TREND_BUFFER, 1, 2, trend);
-   CopyBuffer(ind_handle1, BOS_BUFFER, 1, 1, bos);
+   CopyBuffer(ind_handle1, BOS_BUFFER, 1, 2, bos);
    CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
    
    if(trend[0]!=trend[1]) run_early_exit_policy();
@@ -139,12 +164,9 @@ void OnTick()
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
    
-   ulong pos_tickets[], ord_tickets[];
-   GetMyPositionsTickets(Magic, pos_tickets);
-   GetMyOrdersTickets(Magic, ord_tickets);
    if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;
    
-   if(trend[0]==1 && bos[0]==1 && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
+   if(trend[0]==1 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double sl = find_nearest_unbroken_peak_price(false, 0, ask);
       if(sl<0) return;
@@ -164,7 +186,7 @@ void OnTick()
       double lot_size = normalize_volume(calculate_lot_size((ask-sl)/_Point, risk));
       trade.Buy(lot_size, _Symbol, ask, sl, tp, PositionComment);
    
-   }else if(trend[0]==2 && bos[0]==1 && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
+   }else if(trend[0]==2 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double sl = find_nearest_unbroken_peak_price(true, bid);
       if(sl<0) return;
