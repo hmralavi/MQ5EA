@@ -23,6 +23,11 @@ enum ENUM_TP_POLICY{
    TP_POLICY_BASED_ON_PEAK = 1  // Set tp based on recent peak and minimum Rr
 };
 
+enum ENUM_ENTER_POLICY{
+   ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE = 0,  // instant entry on bos candle's close
+   ENTER_POLICY_ORDER_ON_BROKEN_LEVEL = 1  // pending order on the broken level
+};
+
 input group "Time settings"
 input bool use_chart_timeframe = false;
 input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_H1;
@@ -35,6 +40,7 @@ input int n_candles_peak = 6;
 input int static_or_dynamic_trendline = 0;  // set 1 for static or 2 for trendline, set 0 for both
 
 input group "Position settings"
+input ENUM_ENTER_POLICY enter_policy = ENTER_POLICY_ORDER_ON_BROKEN_LEVEL;
 input double sl_points_offset = 100;  // sl points offset from peak
 input double risk_original = 100;  // risk usd per trade
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
@@ -66,9 +72,10 @@ PropChallengeCriteria prop_challenge_criteria;
 #define HIGH_BUFFER 1
 #define LOW_BUFFER 2
 #define BOS_BUFFER 5
-#define TREND_BUFFER 8
-#define PEAK_BUFFER 9
-#define PEAK_BROKEN_BUFFER 10
+#define BROKEN_LEVEL_BUFFER 6
+#define TREND_BUFFER 9
+#define PEAK_BUFFER 10
+#define PEAK_BROKEN_BUFFER 11
 
 int OnInit()
 {
@@ -164,47 +171,69 @@ void OnTick()
       if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
    
-   if(ArraySize(pos_tickets) + ArraySize(ord_tickets) > 0) return;
+   if(ArraySize(pos_tickets)>0) return;
    
    if(trend[0]==1 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
-      double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      double sl = find_nearest_unbroken_peak_price(false, 0, ask);
+      double p = 0;
+      if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL){
+         DeleteAllOrders(trade);
+         double broken_level[];
+         ArraySetAsSeries(broken_level, true);
+         CopyBuffer(ind_handle1, BROKEN_LEVEL_BUFFER, 1, 1, broken_level);
+         p = broken_level[0];
+      }
+      p = NormalizeDouble(p, _Digits);
+      double sl = find_nearest_unbroken_peak_price(false, 0, p);
       if(sl<0) return;
       sl = sl - sl_points_offset*_Point;
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
-         double mintp = ask + (ask - sl) * Rr;
+         double mintp = p + (p - sl) * Rr;
          tp = find_nearest_unbroken_peak_price(true, mintp);
          if(tp<0) return;
          tp = tp - sl_points_offset*_Point;
       }else if(tp_policy == TP_POLICY_BASED_ON_FIXED_RR){
-         tp = ask + (ask - sl) * Rr;
+         tp = p + (p - sl) * Rr;
       }
       sl = NormalizeDouble(sl ,_Digits);
       tp = NormalizeDouble(tp, _Digits);
-      double _Rr = (tp-ask)/(ask-sl);
-      double lot_size = normalize_volume(calculate_lot_size((ask-sl)/_Point, risk));
-      trade.Buy(lot_size, _Symbol, ask, sl, tp, PositionComment);
+      double _Rr = (tp-p)/(p-sl);
+      double lot_size = normalize_volume(calculate_lot_size((p-sl)/_Point, risk));
+      
+      if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
+      else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) trade.BuyLimit(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);      
    
    }else if(trend[0]==2 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
-      double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double sl = find_nearest_unbroken_peak_price(true, bid);
+      double p = 0;
+      if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL){
+         DeleteAllOrders(trade);
+         double broken_level[];
+         ArraySetAsSeries(broken_level, true);
+         CopyBuffer(ind_handle1, BROKEN_LEVEL_BUFFER, 1, 1, broken_level);
+         p = broken_level[0];
+      }
+      p = NormalizeDouble(p, _Digits);
+      double sl = find_nearest_unbroken_peak_price(true, p);
       if(sl<0) return;
       sl = sl + sl_points_offset*_Point;
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
-         double mintp = bid - (sl - bid) * Rr;
+         double mintp = p - (sl - p) * Rr;
          tp = find_nearest_unbroken_peak_price(false, 0, mintp);
          if(tp<0) return;
          tp = tp + sl_points_offset*_Point;
       }else if(tp_policy == TP_POLICY_BASED_ON_FIXED_RR){
-         tp = bid - (sl - bid) * Rr;
+         tp = p - (sl - p) * Rr;
       }
       sl = NormalizeDouble(sl ,_Digits);
       tp = NormalizeDouble(tp, _Digits);
-      double _Rr = (bid-tp)/(sl-bid);
-      double lot_size = normalize_volume(calculate_lot_size((sl-bid)/_Point, risk));
-      trade.Sell(lot_size, _Symbol, bid, sl, tp, PositionComment);    
+      double _Rr = (p-tp)/(sl-p);
+      double lot_size = normalize_volume(calculate_lot_size((sl-p)/_Point, risk));
+      
+      if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) trade.Sell(lot_size, _Symbol, p, sl, tp, PositionComment);
+      else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) trade.SellLimit(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);      
    }
 
 }
