@@ -216,7 +216,7 @@ void OnTick()
    bool buy_allowed = false;
    bool sell_allowed = false;
    
-   if(confirm_trending_market_with_adx && adx_timeframe>PERIOD_M30){
+   if(confirm_trending_market_with_adx && convert_tf(adx_timeframe)>PERIOD_M30){
       double adxmain[], adxplus[], adxminus[];
       ArraySetAsSeries(adxmain, true);
       ArraySetAsSeries(adxplus, true);
