@@ -126,6 +126,7 @@ int OnCalculate(const int rates_total,
       ExtUpperEdge[i] = ExtUpperEdge[i-1];
       ExtLowerEdge[i] = ExtLowerEdge[i-1];
       ExtInPosition[i] = ExtInPosition[i-1];
+      ExtInPositionLine[i] = 0;
       if(ExtInPosition[i]==1 && low[i]<ExtLowerEdge[i]) ExtInPosition[i] = 0;
       if(ExtInPosition[i]==2 && high[i]>ExtUpperEdge[i]) ExtInPosition[i] = 0;
       if(time[i]>=datetime_start && time[i]<datetime_end){
@@ -141,8 +142,8 @@ int OnCalculate(const int rates_total,
          }
          if(peaks_found){
             ExtZoneType[i] = 2;
-            if(close[i]>ExtUpperEdge[i] && open[i]<ExtUpperEdge[i]) ExtInPosition[i] = 1;
-            else if(close[i]<ExtLowerEdge[i] && open[i]>ExtLowerEdge[i]) ExtInPosition[i] = 2;
+            if(close[i]>ExtUpperEdge[i] && open[i]<=ExtUpperEdge[i]) ExtInPosition[i] = 1;
+            else if(close[i]<ExtLowerEdge[i] && open[i]>=ExtLowerEdge[i]) ExtInPosition[i] = 2;
          }else{
             ExtZoneType[i] = 3;
          }
