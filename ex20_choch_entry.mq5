@@ -73,9 +73,9 @@ PropChallengeCriteria prop_challenge_criteria;
 #define LOW_BUFFER 2
 #define BOS_BUFFER 5
 #define BROKEN_LEVEL_BUFFER 6
-#define TREND_BUFFER 9
-#define PEAK_BUFFER 10
-#define PEAK_BROKEN_BUFFER 11
+#define TREND_BUFFER 10
+#define PEAK_BUFFER 11
+#define PEAK_BROKEN_BUFFER 12
 
 int OnInit()
 {

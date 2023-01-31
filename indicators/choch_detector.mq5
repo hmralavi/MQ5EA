@@ -1,23 +1,26 @@
 //--- indicator settings
 #property indicator_chart_window
-#property indicator_buffers   12
-#property indicator_plots     5
+#property indicator_buffers   13
+#property indicator_plots     6
 
 #property indicator_type1     DRAW_COLOR_CANDLES
-#property indicator_color1    clrLightGray, clrGray, clrLightGreen, clrLimeGreen, clrCoral, clrCrimson  // neutral trend; neutral trend peak; bullish trend; peak in bullish trend; bearish trend; peak in bearish trend
+#property indicator_color1    clrLightGray, clrGray, C'64,64,0', C'86,214,86', C'78,14,14', C'255,79,79'  // neutral trend; neutral trend peak; bullish trend; peak in bullish trend; bearish trend; peak in bearish trend
 #property indicator_label1    "Open;High;Low;Close"
 
 #property indicator_type2 DRAW_NONE
-#property indicator_label2    "BOS"
+#property indicator_label2    "BOS number"
 
 #property indicator_type3 DRAW_NONE
-#property indicator_label3    "Broken Level"
+#property indicator_label3    "Broken candle price"
 
 #property indicator_type4 DRAW_NONE
-#property indicator_label4    "WinRate%"
+#property indicator_label4    "Broken candle shift"
 
 #property indicator_type5 DRAW_NONE
-#property indicator_label5    "ProfitPoints"
+#property indicator_label5    "WinRate%"
+
+#property indicator_type6 DRAW_NONE
+#property indicator_label6    "ProfitPoints"
 
 input int n_candles_peak = 6;
 input int static_dynamic_support_resistant = 0;  // set 0 for both static and trendline, set 1 for static only, set 2 for trendline only
@@ -36,7 +39,8 @@ double ExtTrendbuffer[]; // 0 neutral, 1 bullish, 2 bearish
 double ExtPeakBuffer[]; // 0 neutral, 1 top, 2 bottom
 double ExtPeakBrokenBuffer[];
 double ExtBosBuffer[];
-double ExtBrokenLevelBuffer[];
+double ExtBosPriceBuffer[];
+double ExtBosShiftBuffer[];
 
 int PeakIndex[];
 int TrendChangedIndex[];
@@ -58,12 +62,13 @@ void OnInit()
    SetIndexBuffer(3,ExtCBuffer,INDICATOR_DATA);
    SetIndexBuffer(4,ExtColorBuffer,INDICATOR_COLOR_INDEX);
    SetIndexBuffer(5,ExtBosBuffer,INDICATOR_DATA);
-   SetIndexBuffer(6,ExtBrokenLevelBuffer,INDICATOR_DATA);
-   SetIndexBuffer(7,ExtWinRateBuffer,INDICATOR_DATA); 
-   SetIndexBuffer(8,ExtProfitPointsbuffer,INDICATOR_DATA); 
-   SetIndexBuffer(9,ExtTrendbuffer,INDICATOR_CALCULATIONS);
-   SetIndexBuffer(10,ExtPeakBuffer,INDICATOR_CALCULATIONS);
-   SetIndexBuffer(11,ExtPeakBrokenBuffer,INDICATOR_CALCULATIONS); 
+   SetIndexBuffer(6,ExtBosPriceBuffer,INDICATOR_DATA);
+   SetIndexBuffer(7,ExtBosShiftBuffer,INDICATOR_DATA);
+   SetIndexBuffer(8,ExtWinRateBuffer,INDICATOR_DATA); 
+   SetIndexBuffer(9,ExtProfitPointsbuffer,INDICATOR_DATA); 
+   SetIndexBuffer(10,ExtTrendbuffer,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(11,ExtPeakBuffer,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(12,ExtPeakBrokenBuffer,INDICATOR_CALCULATIONS); 
    
 //---
    IndicatorSetInteger(INDICATOR_DIGITS,_Digits);
@@ -121,6 +126,8 @@ int OnCalculate(const int rates_total,
       //--------------------------------
       ExtPeakBuffer[i] = 0; 
       ExtPeakBrokenBuffer[i] = 0;
+      
+      // detect peaks
       if(i>=2*n_candles_peak){
          int jpeak = i-n_candles_peak;
          bool top = true;
@@ -140,6 +147,7 @@ int OnCalculate(const int rates_total,
          }         
       }
       
+      // detect nodes
       if(i>10){
          int jnode=i-1;
          bool top = false;
@@ -167,7 +175,8 @@ int OnCalculate(const int rates_total,
       //--------------------------------
       ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
       ExtBosBuffer[i] = ExtBosBuffer[i-1];
-      ExtBrokenLevelBuffer[i] = 0;
+      ExtBosPriceBuffer[i] = 0;
+      ExtBosShiftBuffer[i] = 0;
       int npeaks = ArraySize(PeakIndex);     
       for(int j=0;j<npeaks;j++){
          int pindex = PeakIndex[j];   
@@ -201,7 +210,8 @@ int OnCalculate(const int rates_total,
                ExtPeakBrokenBuffer[pindex] = 1;
                if(ExtTrendbuffer[i-1]!=1) ExtBosBuffer[i] = 1;
                else ExtBosBuffer[i] = ExtBosBuffer[i-1]+1;
-               ExtBrokenLevelBuffer[i] = high[pindex];
+               ExtBosPriceBuffer[i] = high[pindex];
+               ExtBosShiftBuffer[i] = i-pindex;
             }
             
          }else if(ExtPeakBuffer[pindex]==2){
@@ -233,7 +243,8 @@ int OnCalculate(const int rates_total,
                ExtPeakBrokenBuffer[pindex] = 1;
                if(ExtTrendbuffer[i-1]!=2) ExtBosBuffer[i] = 1;
                else ExtBosBuffer[i] = ExtBosBuffer[i-1]+1;
-               ExtBrokenLevelBuffer[i] = low[pindex];
+               ExtBosPriceBuffer[i] = low[pindex];
+               ExtBosShiftBuffer[i] = i-pindex;
             }
          }
       }
