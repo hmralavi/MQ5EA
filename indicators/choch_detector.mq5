@@ -40,6 +40,12 @@ double ExtBrokenLevelBuffer[];
 
 int PeakIndex[];
 int TrendChangedIndex[];
+
+#define ISGREEN(j) close[j]>open[j]
+#define ISRED(j) close[j]<open[j]
+#define SPREAD(j) MathAbs(high[j]-low[j])
+#define BODYRATIO(j) MathAbs(close[j]-open[j])/MathAbs(high[j]-low[j])
+
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
@@ -109,7 +115,10 @@ int OnCalculate(const int rates_total,
       ExtCBuffer[i]=close[i];     
       if(i==rates_total-1) continue;  // dont further analyze the unclosed candle
       if(ExtTrendbuffer[i]>0) continue;
-      //--detect peak
+      
+      //--------------------------------
+      //-------detect peaks and nodes-------------
+      //--------------------------------
       ExtPeakBuffer[i] = 0; 
       ExtPeakBrokenBuffer[i] = 0;
       if(i>=2*n_candles_peak){
@@ -128,6 +137,28 @@ int OnCalculate(const int rates_total,
             ArrayResize(PeakIndex, npeaks+1);
             PeakIndex[npeaks] = jpeak;    
             ExtColorBuffer[jpeak] = ExtTrendbuffer[jpeak]*2 + 1;        
+         }         
+      }
+      
+      if(i>10){
+         int jnode=i-1;
+         bool top = false;
+         bool bottom = false;                  
+         
+         if(ISGREEN(jnode+1) && ISRED(jnode) && ISGREEN(jnode-1) && close[jnode+1]>close[jnode-1] && low[jnode]>open[jnode-1] && high[jnode]<close[jnode+1] && MathAbs(high[jnode-2]-low[jnode-1])/SPREAD(jnode-1)<0.7){
+            bottom = true;
+         }
+         if(ISRED(jnode+1) && ISGREEN(jnode) && ISRED(jnode-1) && close[jnode+1]<close[jnode-1] && high[jnode]<open[jnode-1] && low[jnode]>close[jnode+1] && MathAbs(low[jnode-2]-high[jnode-1])/SPREAD(jnode-1)<0.7){
+            top = true;
+         }
+         
+         if(top) ExtPeakBuffer[jnode] = 1;
+         if(bottom) ExtPeakBuffer[jnode] = 2;
+         if(top || bottom){
+            int npeaks = ArraySize(PeakIndex);
+            ArrayResize(PeakIndex, npeaks+1);
+            PeakIndex[npeaks] = jnode;    
+            ExtColorBuffer[jnode] = ExtTrendbuffer[jnode]*2 + 1;        
          }         
       }
       
