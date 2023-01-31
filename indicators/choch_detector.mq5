@@ -134,8 +134,8 @@ int OnCalculate(const int rates_total,
          bool bottom = true;
          for(int j=jpeak-n_candles_peak;j<=jpeak+n_candles_peak;j++){
             if(j==jpeak) continue;
-            top = top && high[jpeak]>high[j];
-            bottom = bottom && low[jpeak]<low[j];
+            top = top && high[jpeak]>=high[j];
+            bottom = bottom && low[jpeak]<=low[j];
          }
          if(top) ExtPeakBuffer[jpeak] = 1;
          if(bottom) ExtPeakBuffer[jpeak] = 2;
