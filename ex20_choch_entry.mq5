@@ -149,7 +149,7 @@ void OnTick()
       }
    }   
    
-   if(!IsNewCandle(tf, 100)) return;   
+   if(!IsNewCandle(tf, 10)) return;   
       
    double trend[], bos[], higher_trend[1];
    ArraySetAsSeries(trend, true);
