@@ -50,6 +50,8 @@ input double Rr = 2;  // fixed(minimum) reward/risk ratio
 input group "Trailing Stoploss"
 input bool trailing_stoploss = false;
 input double tsl_offset_points = 300;
+input bool riskfree = false;
+input double riskfree_trigger_tp_ratio = 0.1;
 
 input group "Optimization criteria for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
@@ -84,9 +86,11 @@ int OnInit()
    if(use_chart_timeframe) tf = _Period;
    else tf = convert_tf(custom_timeframe);
    ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
-   ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
    ChartIndicatorAdd(0, 0, ind_handle1);
-   ChartIndicatorAdd(0, 0, ind_handle2);
+   if(confirm_with_higher_timeframe){
+      ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
+      ChartIndicatorAdd(0, 0, ind_handle2);
+   }
    risk = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
    return(INIT_SUCCEEDED);
@@ -124,9 +128,8 @@ void OnTick()
       }
    }
    
-   ulong pos_tickets[], ord_tickets[];
+   ulong pos_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
-   GetMyOrdersTickets(Magic, ord_tickets);
    
    if(trailing_stoploss){
       int npos = ArraySize(pos_tickets);
@@ -144,15 +147,18 @@ void OnTick()
    
    if(!IsNewCandle(tf)) return;   
       
-   double trend[], bos[], higher_trend[];
+   double trend[], bos[], higher_trend[1];
    ArraySetAsSeries(trend, true);
    ArraySetAsSeries(bos, true);
    ArraySetAsSeries(higher_trend, true);
    CopyBuffer(ind_handle1, TREND_BUFFER, 1, 2, trend);
    CopyBuffer(ind_handle1, BOS_BUFFER, 1, 2, bos);
-   CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
+   if(confirm_with_higher_timeframe) CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
    
    if(trend[0]!=trend[1]) run_early_exit_policy();
+   
+   ArrayResize(pos_tickets, 0);
+   GetMyPositionsTickets(Magic, pos_tickets);
    
    if(trading_month>0){
       MqlDateTime current_date;

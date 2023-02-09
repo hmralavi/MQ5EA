@@ -100,10 +100,10 @@ bool IsNewCandle(ENUM_TIMEFRAMES timeframe){
    static datetime lasttime = current_candle_time;
    if(lasttime == current_candle_time){
          return false;
-      }else{
-         lasttime = current_candle_time;
-         return true;
-      }
+   }else{
+      lasttime = current_candle_time;
+      return true;
+   }
 }
 
 void GetMyPositionsTickets(long magic_number, ulong& pos_tickets[]){
