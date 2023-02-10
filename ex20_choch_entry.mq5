@@ -44,6 +44,9 @@ input ENUM_ENTER_POLICY enter_policy = ENTER_POLICY_ORDER_ON_BROKEN_LEVEL;
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
 input int min_bos_number = 0;
 input int max_bos_number = 0;
+input double min_winrate = 0;
+input double max_winrate = 0;
+input int winrate_backtest_period = 10;
 
 input group "Risk settings"
 input double risk_original = 100;  // risk usd per trade
@@ -54,8 +57,6 @@ input double Rr = 2;  // fixed(minimum) reward/risk ratio
 input group "Trailing Stoploss"
 input bool trailing_stoploss = false;
 input double tsl_offset_points = 300;
-input bool riskfree = false;
-input double riskfree_trigger_tp_ratio = 0.1;
 
 input group "Optimization criteria for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
@@ -79,6 +80,7 @@ PropChallengeCriteria prop_challenge_criteria;
 #define LOW_BUFFER 2
 #define BOS_BUFFER 5
 #define BROKEN_LEVEL_BUFFER 6
+#define WINRATE_BUFFER 8
 #define TREND_BUFFER 10
 #define PEAK_BUFFER 11
 #define PEAK_BROKEN_BUFFER 12
@@ -89,10 +91,11 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_chart_timeframe) tf = _Period;
    else tf = convert_tf(custom_timeframe);
-   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
+   bool do_backtest = min_winrate>0 || max_winrate>0;
+   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline, do_backtest, winrate_backtest_period);
    ChartIndicatorAdd(0, 0, ind_handle1);
    if(confirm_with_higher_timeframe){
-      ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline);
+      ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline, false);
       ChartIndicatorAdd(0, 0, ind_handle2);
    }
    risk = risk_original;
@@ -151,13 +154,15 @@ void OnTick()
    
    if(!IsNewCandle(tf, 10)) return;   
       
-   double trend[], bos[], higher_trend[1];
+   double trend[], bos[], higher_trend[1], winrate[1];
    ArraySetAsSeries(trend, true);
    ArraySetAsSeries(bos, true);
    ArraySetAsSeries(higher_trend, true);
+   ArraySetAsSeries(winrate, true);
    CopyBuffer(ind_handle1, TREND_BUFFER, 1, 2, trend);
    CopyBuffer(ind_handle1, BOS_BUFFER, 1, 2, bos);
    if(confirm_with_higher_timeframe) CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
+   if(min_winrate>0 || max_winrate>0) CopyBuffer(ind_handle1, WINRATE_BUFFER, 1, 1, winrate);
    
    if(trend[0]!=trend[1]){
       DeleteAllOrders(trade);
@@ -185,10 +190,12 @@ void OnTick()
    }
    
    if(ArraySize(pos_tickets)>0) return;
+   if(min_bos_number>0 && bos[0]<min_bos_number) return;
+   if(max_bos_number>0 && bos[0]>max_bos_number) return;
+   if(min_winrate>0 && winrate[0]<min_winrate) return;
+   if(max_winrate>0 && winrate[0]>max_winrate) return;
    
    if(trend[0]==1 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
-      if(min_bos_number>0 && bos[0]<min_bos_number) return;
-      if(max_bos_number>0 && bos[0]>max_bos_number) return;
       double p = 0;
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL){
@@ -220,8 +227,6 @@ void OnTick()
       else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) trade.BuyLimit(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);      
    
    }else if(trend[0]==2 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
-      if(min_bos_number>0 && bos[0]<min_bos_number) return;
-      if(max_bos_number>0 && bos[0]>max_bos_number) return;
       double p = 0;
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL){
