@@ -98,9 +98,10 @@ struct OrderBlockProperties{
 bool IsNewCandle(ENUM_TIMEFRAMES timeframe, int delay_seconds=0){
    datetime current_candle_time = iTime(_Symbol, timeframe, 0);
    static datetime lasttime = current_candle_time;
-   if(lasttime == current_candle_time && TimeCurrent()-current_candle_time>delay_seconds){
+   if(lasttime == current_candle_time){
          return false;
    }else{
+      if(TimeCurrent()-current_candle_time<delay_seconds) return false;
       lasttime = current_candle_time;
       return true;
    }

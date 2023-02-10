@@ -159,7 +159,10 @@ void OnTick()
    CopyBuffer(ind_handle1, BOS_BUFFER, 1, 2, bos);
    if(confirm_with_higher_timeframe) CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
    
-   if(trend[0]!=trend[1]) run_early_exit_policy();
+   if(trend[0]!=trend[1]){
+      DeleteAllOrders(trade);
+      run_early_exit_policy();
+   }
    
    ArrayResize(pos_tickets, 0);
    GetMyPositionsTickets(Magic, pos_tickets);
