@@ -29,6 +29,7 @@
 #property indicator_label8    "NetProfitPoints"
 
 input int n_candles_peak = 6;
+input double peak_slope_min = 0;
 input int static_dynamic_support_resistant = 0;  // set 0 for both static and trendline, set 1 for static only, set 2 for trendline only
 input bool backtesting = false;
 input int n_trend_change_win_rate = 10;
@@ -57,6 +58,7 @@ int TrendChangedIndex[];
 #define ISRED(j) close[j]<open[j]
 #define SPREAD(j) MathAbs(high[j]-low[j])
 #define BODYRATIO(j) MathAbs(close[j]-open[j])/MathAbs(high[j]-low[j])
+#define PI 3.14159265
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -142,10 +144,10 @@ int OnCalculate(const int rates_total,
          int jpeak = i-n_candles_peak;
          bool top = true;
          bool bottom = true;
-         for(int j=jpeak-n_candles_peak;j<=jpeak+n_candles_peak;j++){
-            if(j==jpeak) continue;
-            top = top && high[jpeak]>=high[j];
-            bottom = bottom && low[jpeak]<=low[j];
+         for(int j=-n_candles_peak;j<=n_candles_peak;j++){
+            if(j==0) continue;
+            top = top && high[jpeak]>=high[jpeak+j] && calc_slope(high[jpeak], 0, high[jpeak+j], j)>peak_slope_min*j/n_candles_peak;
+            bottom = bottom && low[jpeak]<=low[jpeak+j] && calc_slope(low[jpeak], 0, low[jpeak+j], j)>peak_slope_min*j/n_candles_peak;
          }
          if(top) ExtPeakBuffer[jpeak] = 1;
          if(bottom) ExtPeakBuffer[jpeak] = 2;
@@ -310,4 +312,11 @@ int OnCalculate(const int rates_total,
 double calc_trend_line_price(double p1, double i1, double p2, double i2, double i3){
    double p3 = p1+(p1-p2)*(i3-i1)/(i1-i2);
    return p3;
+}
+
+double calc_slope(double p1, double i1, double p2, double i2){
+   double m = (p1-p2)/(i1-i2)/_Point;
+   double rad = atan(m);
+   double deg = 90*MathAbs(rad)/(PI/2);
+   return deg;   
 }
