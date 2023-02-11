@@ -38,7 +38,8 @@ input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
 input group "Indicator settings"
 input int n_candles_peak = 6;
 input double peak_slope_min = 0;
-input int static_or_dynamic_trendline = 0;  // set 1 for static or 2 for trendline, set 0 for both
+input int main_tf_static_or_dynamic_trendline = 0;  // main tf breakout criteria: set 1 for static or 2 for trendline, set 0 for both
+input int higher_tf_static_or_dynamic_trendline = 0;  // higher tf breakout criteria: set 1 for static or 2 for trendline, set 0 for both
 
 input group "Position settings"
 input ENUM_ENTER_POLICY enter_policy = ENTER_POLICY_ORDER_ON_BROKEN_LEVEL;
@@ -97,10 +98,10 @@ int OnInit()
    if(use_chart_timeframe) tf = _Period;
    else tf = convert_tf(custom_timeframe);
    bool do_backtest = winrate_min>0 || winrate_max>0 || profit_factor_min>0 || profit_factor_max>0;
-   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, peak_slope_min, static_or_dynamic_trendline, do_backtest, backtest_period);
+   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, peak_slope_min, main_tf_static_or_dynamic_trendline, do_backtest, backtest_period);
    ChartIndicatorAdd(0, 0, ind_handle1);
    if(confirm_with_higher_timeframe){
-      ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, peak_slope_min, static_or_dynamic_trendline, false, backtest_period);
+      ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, peak_slope_min, higher_tf_static_or_dynamic_trendline, false, backtest_period);
       ChartIndicatorAdd(0, 0, ind_handle2);
    }
    risk = risk_original;
