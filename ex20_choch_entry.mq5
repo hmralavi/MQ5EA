@@ -57,9 +57,9 @@ input double sl_points_offset = 100;  // sl points offset from peak
 input ENUM_TP_POLICY tp_policy = TP_POLICY_BASED_ON_PEAK;
 input double Rr = 2;  // fixed(minimum) reward/risk ratio 
 
-input group "Trailing Stoploss"
-input bool trailing_stoploss = false;
-input double tsl_offset_points = 300;
+input group "Breakeven & Riskfree"
+input double breakeven_trigger_as_sl_ratio = 0;
+input double riskfree_trigger_as_tp_ratio = 0;
 
 input group "Optimization criteria for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
@@ -143,19 +143,39 @@ void OnTick()
    ulong pos_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
    
-   if(trailing_stoploss){
+   if(breakeven_trigger_as_sl_ratio>0){
       int npos = ArraySize(pos_tickets);
       for(int ipos=0;ipos<npos;ipos++){
          PositionSelectByTicket(pos_tickets[ipos]);
          ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
          double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
          double curr_sl = PositionGetDouble(POSITION_SL);
-         double trigger_points = 0;
-         if(pos_type==POSITION_TYPE_BUY && curr_sl<open_price) trigger_points = (open_price-curr_sl)/_Point;
-         if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price) trigger_points = (curr_sl-open_price)/_Point;
-         TrailingStoploss(trade, pos_tickets[ipos], tsl_offset_points, trigger_points);         
+         double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
+         double curr_tp = PositionGetDouble(POSITION_TP);
+         if(pos_type==POSITION_TYPE_BUY && curr_sl<open_price && curr_tp>open_price && curr_price<open_price-(open_price-curr_sl)*breakeven_trigger_as_sl_ratio){
+            trade.PositionModify(pos_tickets[ipos], curr_sl, open_price);
+         }else if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price && curr_tp<open_price && curr_price>open_price-(open_price-curr_sl)*breakeven_trigger_as_sl_ratio){
+            trade.PositionModify(pos_tickets[ipos], curr_sl, open_price);
+         }   
       }
    }   
+   
+   if(riskfree_trigger_as_tp_ratio>0){
+      int npos = ArraySize(pos_tickets);
+      for(int ipos=0;ipos<npos;ipos++){
+         PositionSelectByTicket(pos_tickets[ipos]);
+         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
+         double curr_sl = PositionGetDouble(POSITION_SL);
+         double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
+         double curr_tp = PositionGetDouble(POSITION_TP);
+         if(pos_type==POSITION_TYPE_BUY && curr_sl<open_price && curr_tp>open_price && curr_price>open_price+(curr_tp-open_price)*riskfree_trigger_as_tp_ratio){
+            trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+         }else if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price && curr_tp<open_price && curr_price<open_price+(curr_tp-open_price)*riskfree_trigger_as_tp_ratio){
+            trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+         }   
+      }
+   }
    
    if(!IsNewCandle(tf, 10)) return;   
       
