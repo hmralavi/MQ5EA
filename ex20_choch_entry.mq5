@@ -44,9 +44,11 @@ input ENUM_ENTER_POLICY enter_policy = ENTER_POLICY_ORDER_ON_BROKEN_LEVEL;
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
 input int min_bos_number = 0;
 input int max_bos_number = 0;
-input double min_winrate = 0;
-input double max_winrate = 0;
-input int winrate_backtest_period = 10;
+input double winrate_min = 0;
+input double winrate_max = 0;
+input double profit_factor_min = 0;
+input double profit_factor_max = 0;
+input int backtest_period = 10;
 
 input group "Risk settings"
 input double risk_original = 100;  // risk usd per trade
@@ -81,9 +83,11 @@ PropChallengeCriteria prop_challenge_criteria;
 #define BOS_BUFFER 5
 #define BROKEN_LEVEL_BUFFER 6
 #define WINRATE_BUFFER 8
-#define TREND_BUFFER 10
-#define PEAK_BUFFER 11
-#define PEAK_BROKEN_BUFFER 12
+#define PROFIT_BUFFER 9
+#define LOSS_BUFFER 10
+#define TREND_BUFFER 12
+#define PEAK_BUFFER 13
+#define PEAK_BROKEN_BUFFER 14
 
 int OnInit()
 {
@@ -91,8 +95,8 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_chart_timeframe) tf = _Period;
    else tf = convert_tf(custom_timeframe);
-   bool do_backtest = min_winrate>0 || max_winrate>0;
-   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline, do_backtest, winrate_backtest_period);
+   bool do_backtest = winrate_min>0 || winrate_max>0 || profit_factor_min>0 || profit_factor_max>0;
+   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline, do_backtest, backtest_period);
    ChartIndicatorAdd(0, 0, ind_handle1);
    if(confirm_with_higher_timeframe){
       ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, static_or_dynamic_trendline, false);
@@ -154,15 +158,21 @@ void OnTick()
    
    if(!IsNewCandle(tf, 10)) return;   
       
-   double trend[], bos[], higher_trend[1], winrate[1];
+   double trend[], bos[], higher_trend[1], winrate[1], profit_points[1], loss_points[1];
    ArraySetAsSeries(trend, true);
    ArraySetAsSeries(bos, true);
    ArraySetAsSeries(higher_trend, true);
    ArraySetAsSeries(winrate, true);
+   ArraySetAsSeries(loss_points, true);
+   ArraySetAsSeries(winrate, true);
    CopyBuffer(ind_handle1, TREND_BUFFER, 1, 2, trend);
    CopyBuffer(ind_handle1, BOS_BUFFER, 1, 2, bos);
    if(confirm_with_higher_timeframe) CopyBuffer(ind_handle2, TREND_BUFFER, 1, 1, higher_trend);
-   if(min_winrate>0 || max_winrate>0) CopyBuffer(ind_handle1, WINRATE_BUFFER, 1, 1, winrate);
+   if(winrate_min>0 || winrate_max>0 || profit_factor_min>0 || profit_factor_max>0){
+      CopyBuffer(ind_handle1, WINRATE_BUFFER, 1, 1, winrate);
+      CopyBuffer(ind_handle1, PROFIT_BUFFER, 1, 1, profit_points);
+      CopyBuffer(ind_handle1, LOSS_BUFFER, 1, 1, loss_points);
+   }
    
    if(trend[0]!=trend[1]){
       DeleteAllOrders(trade);
@@ -192,8 +202,10 @@ void OnTick()
    if(ArraySize(pos_tickets)>0) return;
    if(min_bos_number>0 && bos[0]<min_bos_number) return;
    if(max_bos_number>0 && bos[0]>max_bos_number) return;
-   if(min_winrate>0 && winrate[0]<min_winrate) return;
-   if(max_winrate>0 && winrate[0]>max_winrate) return;
+   if(winrate_min>0 && winrate[0]<winrate_min) return;
+   if(winrate_max>0 && winrate[0]>winrate_max) return;
+   if(profit_factor_min>0 && MathAbs(profit_points[0]/loss_points[0])<profit_factor_min) return;
+   if(profit_factor_max>0 && MathAbs(profit_points[0]/loss_points[0])>profit_factor_max) return;  
    
    if(trend[0]==1 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double p = 0;
