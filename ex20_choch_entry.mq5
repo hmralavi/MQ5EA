@@ -305,7 +305,7 @@ double find_nearest_unbroken_peak_price(bool findtop, double higherthan=0, doubl
    ArraySetAsSeries(broken, true);
    ArraySetAsSeries(high, true);
    ArraySetAsSeries(low, true);
-   int ncandles = 2000;
+   int ncandles = 500;
    CopyBuffer(ind_handle1, PEAK_BUFFER, 1, ncandles, peaks);
    CopyBuffer(ind_handle1, PEAK_BROKEN_BUFFER, 1, ncandles, broken);
    CopyBuffer(ind_handle1, HIGH_BUFFER, 1, ncandles, high);
