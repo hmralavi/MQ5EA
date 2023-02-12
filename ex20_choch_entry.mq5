@@ -34,6 +34,9 @@ input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_H1;
 input bool confirm_with_higher_timeframe = true;
 input ENUM_CUSTOM_TIMEFRAMES higher_timeframe = CUSTOM_TIMEFRAMES_D1;
 input ENUM_MONTH trading_month=MONTH_JAN;  // trade only in this month
+input bool trade_only_in_session_time = false;  // entries only in specific session time of the day
+input int session_start_hour = 9;      // session start hour (server time)
+input int session_end_hour = 19;    // session end hour (server time)    
 
 input group "Indicator settings"
 input int n_candles_peak = 6;
@@ -228,7 +231,8 @@ void OnTick()
    if(winrate_max>0 && winrate[0]>winrate_max) return;
    if(profit_factor_min>0 && MathAbs(profit_points[0]/loss_points[0])<profit_factor_min) return;
    if(profit_factor_max>0 && MathAbs(profit_points[0]/loss_points[0])>profit_factor_max) return;  
-   
+   if(!is_session_time_allowed_int(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
+
    if(trend[0]==1 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double p = 0;
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);

@@ -404,6 +404,13 @@ bool is_session_time_allowed(string session_start_time, string session_end_time)
    return _currentservertime>=_start && _currentservertime<=_finish;
 }
 
+bool is_session_time_allowed_int(int session_start_hour, int session_end_hour){
+   datetime currentservertime = TimeCurrent();
+   MqlDateTime timestruct;
+   TimeToStruct(currentservertime, timestruct);
+   return timestruct.hour>=session_start_hour && timestruct.hour<=session_end_hour;
+}
+
 
 double calculate_lot_size(double slpoints, double riskusd){
    double multiplier = 1;
