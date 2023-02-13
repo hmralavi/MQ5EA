@@ -329,6 +329,38 @@ double find_nearest_unbroken_peak_price(bool findtop, double higherthan=0, doubl
    return -1;   
 }
 
+//double find_nearest_unbroken_peak_price_new(bool findtop, double higherthan=0, double lowerthan=100000000){
+//   double high[], low[];
+//   ArraySetAsSeries(high, true);
+//   ArraySetAsSeries(low, true);
+//   int ncandles = 100;
+//   CopyBuffer(ind_handle1, HIGH_BUFFER, 1, ncandles, high);
+//   CopyBuffer(ind_handle1, LOW_BUFFER, 1, ncandles, low);
+//   double hi=0;
+//   double lo=100000000;
+//   int counter=0;
+//   for(int i=0;i<ncandles;i++){
+//      if(findtop){
+//         if(high[i]>hi && high[i]>=higherthan && high[i]<=lowerthan){
+//            hi = high[i];
+//            counter = 0;
+//         }else{
+//            counter++;
+//            if(counter==3) return hi;
+//         }
+//      }else{
+//         if(low[i]<lo && low[i]>=higherthan && low[i]<=lowerthan){
+//            lo = low[i];
+//            counter = 0;
+//         }else{
+//            counter++;
+//            if(counter==3) return lo;
+//         }
+//      }
+//   }
+//   return -1;   
+//}
+
 
 void run_early_exit_policy(void){
    if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT){
