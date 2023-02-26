@@ -59,6 +59,7 @@ int TrendChangedIndex[];
 #define SPREAD(j) MathAbs(high[j]-low[j])
 #define BODYRATIO(j) MathAbs(close[j]-open[j])/MathAbs(high[j]-low[j])
 #define PI 3.14159265
+#define MAX_STORED_PEAKS 100
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -153,6 +154,10 @@ int OnCalculate(const int rates_total,
          if(bottom) ExtPeakBuffer[jpeak] = 2;
          if(top || bottom){
             int npeaks = ArraySize(PeakIndex);
+            if(npeaks+1>MAX_STORED_PEAKS){
+               ArrayRemove(PeakIndex, 0, 1);
+               npeaks = ArraySize(PeakIndex);
+            }
             ArrayResize(PeakIndex, npeaks+1);
             PeakIndex[npeaks] = jpeak;    
             ExtColorBuffer[jpeak] = ExtTrendbuffer[jpeak]*2 + 1;        
@@ -176,6 +181,10 @@ int OnCalculate(const int rates_total,
          if(bottom) ExtPeakBuffer[jnode] = 2;
          if(top || bottom){
             int npeaks = ArraySize(PeakIndex);
+            if(npeaks+1>MAX_STORED_PEAKS){
+               ArrayRemove(PeakIndex, 0, 1);
+               npeaks = ArraySize(PeakIndex);
+            }
             ArrayResize(PeakIndex, npeaks+1);
             PeakIndex[npeaks] = jnode;    
             ExtColorBuffer[jnode] = ExtTrendbuffer[jnode]*2 + 1;        
@@ -189,7 +198,7 @@ int OnCalculate(const int rates_total,
       ExtBosBuffer[i] = ExtBosBuffer[i-1];
       ExtBosPriceBuffer[i] = 0;
       ExtBosShiftBuffer[i] = 0;
-      int npeaks = ArraySize(PeakIndex);     
+      int npeaks = ArraySize(PeakIndex);    
       for(int j=0;j<npeaks;j++){
          int pindex = PeakIndex[j];   
          if(ExtPeakBrokenBuffer[pindex]==1) continue;     
