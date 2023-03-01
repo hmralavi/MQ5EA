@@ -150,18 +150,7 @@ int OnCalculate(const int rates_total,
             top = top && high[jpeak]>=high[jpeak+j] && calc_slope(high[jpeak], 0, high[jpeak+j], j)>peak_slope_min*j/n_candles_peak;
             bottom = bottom && low[jpeak]<=low[jpeak+j] && calc_slope(low[jpeak], 0, low[jpeak+j], j)>peak_slope_min*j/n_candles_peak;
          }
-         if(top) ExtPeakBuffer[jpeak] = 1;
-         if(bottom) ExtPeakBuffer[jpeak] = 2;
-         if(top || bottom){
-            int npeaks = ArraySize(PeakIndex);
-            if(npeaks+1>MAX_STORED_PEAKS){
-               ArrayRemove(PeakIndex, 0, 1);
-               npeaks = ArraySize(PeakIndex);
-            }
-            ArrayResize(PeakIndex, npeaks+1);
-            PeakIndex[npeaks] = jpeak;    
-            ExtColorBuffer[jpeak] = ExtTrendbuffer[jpeak]*2 + 1;        
-         }         
+         assign_as_peak(jpeak, top, bottom);        
       }
       
       // detect nodes
@@ -176,25 +165,13 @@ int OnCalculate(const int rates_total,
          if(ISRED(jnode+1) && ISGREEN(jnode) && ISRED(jnode-1) && close[jnode+1]<close[jnode-1] && high[jnode]<open[jnode-1] && low[jnode]>close[jnode+1] && MathAbs(low[jnode-2]-high[jnode-1])/SPREAD(jnode-1)<0.7){
             top = true;
          }
-         
-         if(top) ExtPeakBuffer[jnode] = 1;
-         if(bottom) ExtPeakBuffer[jnode] = 2;
-         if(top || bottom){
-            int npeaks = ArraySize(PeakIndex);
-            if(npeaks+1>MAX_STORED_PEAKS){
-               ArrayRemove(PeakIndex, 0, 1);
-               npeaks = ArraySize(PeakIndex);
-            }
-            ArrayResize(PeakIndex, npeaks+1);
-            PeakIndex[npeaks] = jnode;    
-            ExtColorBuffer[jnode] = ExtTrendbuffer[jnode]*2 + 1;        
-         }         
+         assign_as_peak(jnode, top, bottom);         
       }
       
       //--------------------------------
       //-------detect choch and bos-----
       //--------------------------------
-      ExtTrendbuffer[i] = ExtTrendbuffer[i-1];   
+      ExtTrendbuffer[i] = ExtTrendbuffer[i-1];
       ExtBosBuffer[i] = ExtBosBuffer[i-1];
       ExtBosPriceBuffer[i] = 0;
       ExtBosShiftBuffer[i] = 0;
@@ -229,10 +206,11 @@ int OnCalculate(const int rates_total,
             if(trend_line_broken){
                ExtTrendbuffer[i] = 1;
                ExtPeakBrokenBuffer[pindex] = 1;
-               if(ExtTrendbuffer[i-1]!=1) ExtBosBuffer[i] = 1;
+               if(ExtTrendbuffer[i]!= ExtTrendbuffer[i-1]) ExtBosBuffer[i] = 1;
                else ExtBosBuffer[i] = ExtBosBuffer[i-1]+1;
                ExtBosPriceBuffer[i] = high[pindex];
                ExtBosShiftBuffer[i] = i-pindex;
+               //assign_as_peak(i, false, true); // this means: cosider the breaking candle as a peak. but lets keep it disable as it generates bad results.
             }
             
          }else if(ExtPeakBuffer[pindex]==2){
@@ -262,10 +240,11 @@ int OnCalculate(const int rates_total,
             if(trend_line_broken){
                ExtTrendbuffer[i] = 2;
                ExtPeakBrokenBuffer[pindex] = 1;
-               if(ExtTrendbuffer[i-1]!=2) ExtBosBuffer[i] = 1;
+               if(ExtTrendbuffer[i]!= ExtTrendbuffer[i-1]) ExtBosBuffer[i] = 1;
                else ExtBosBuffer[i] = ExtBosBuffer[i-1]+1;
                ExtBosPriceBuffer[i] = low[pindex];
                ExtBosShiftBuffer[i] = i-pindex;
+               //assign_as_peak(i, true, false);  // this means: cosider the breaking candle as a peak. but lets keep it disable as it generates bad results.
             }
          }
       }
@@ -328,4 +307,20 @@ double calc_slope(double p1, double i1, double p2, double i2){
    double rad = atan(m);
    double deg = 90*MathAbs(rad)/(PI/2);
    return deg;   
+}
+
+void assign_as_peak(int jpeak, bool istop, bool isbottom){
+   if(ExtPeakBuffer[jpeak]>0) return;
+   if(istop) ExtPeakBuffer[jpeak] = 1;
+   if(isbottom) ExtPeakBuffer[jpeak] = 2;
+   if(istop || isbottom){
+      int npeaks = ArraySize(PeakIndex);
+      if(npeaks+1>MAX_STORED_PEAKS){
+         ArrayRemove(PeakIndex, 0, 1);
+         npeaks = ArraySize(PeakIndex);
+      }
+      ArrayResize(PeakIndex, npeaks+1);
+      PeakIndex[npeaks] = jpeak;    
+      ExtColorBuffer[jpeak] = ExtTrendbuffer[jpeak]*2 + 1;        
+   }
 }
