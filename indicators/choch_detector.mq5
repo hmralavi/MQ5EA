@@ -133,9 +133,9 @@ int OnCalculate(const int rates_total,
       ExtHBuffer[i]=high[i];
       ExtOBuffer[i]=open[i];
       ExtCBuffer[i]=close[i];
+      if(ExtTrendbuffer[i]>0) continue;
       ExtColorBuffer[i]=ISGREEN(i)?0:1;
       if(i==rates_total-1) continue;  // dont further analyze the unclosed candle
-      if(ExtTrendbuffer[i]>0) continue;
       //--------------------------------
       //-------detect peaks and nodes-------------
       //--------------------------------
