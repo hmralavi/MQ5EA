@@ -33,6 +33,8 @@ input double peak_slope_min = 0;
 input int static_dynamic_support_resistant = 0;  // set 0 for both static and trendline, set 1 for static only, set 2 for trendline only
 input bool backtesting = false;
 input int n_trend_change_win_rate = 10;
+input bool apply_color_on_trend = true;
+input bool enable_alert = false;
 
 //--- indicator buffers
 double ExtOBuffer[];
@@ -59,7 +61,7 @@ int TrendChangedIndex[];
 #define SPREAD(j) MathAbs(high[j]-low[j])
 #define BODYRATIO(j) MathAbs(close[j]-open[j])/MathAbs(high[j]-low[j])
 #define PI 3.14159265
-#define MAX_STORED_PEAKS 100
+#define MAX_STORED_PEAKS 20
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -115,7 +117,7 @@ int OnCalculate(const int rates_total,
       ExtHBuffer[0]=high[0];
       ExtOBuffer[0]=open[0];
       ExtCBuffer[0]=close[0];
-      ExtColorBuffer[0]=0;
+      ExtColorBuffer[0]=ISGREEN(0)?0:1;
       ExtTrendbuffer[0]=0;
       ExtPeakBuffer[0]=0;
       ExtPeakBrokenBuffer[0]=0;
@@ -130,10 +132,10 @@ int OnCalculate(const int rates_total,
       ExtLBuffer[i]=low[i];
       ExtHBuffer[i]=high[i];
       ExtOBuffer[i]=open[i];
-      ExtCBuffer[i]=close[i];     
+      ExtCBuffer[i]=close[i];
+      ExtColorBuffer[i]=ISGREEN(i)?0:1;
       if(i==rates_total-1) continue;  // dont further analyze the unclosed candle
       if(ExtTrendbuffer[i]>0) continue;
-      
       //--------------------------------
       //-------detect peaks and nodes-------------
       //--------------------------------
@@ -211,6 +213,8 @@ int OnCalculate(const int rates_total,
                ExtBosPriceBuffer[i] = high[pindex];
                ExtBosShiftBuffer[i] = i-pindex;
                //assign_as_peak(i, false, true); // this means: cosider the breaking candle as a peak. but lets keep it disable as it generates bad results.
+               if(ExtBosBuffer[i] == 1) Alert(_Symbol + ": bullish choch detected.");
+               if(ExtBosBuffer[i] > 1) Alert(_Symbol + ": bullish bos detected.");
             }
             
          }else if(ExtPeakBuffer[pindex]==2){
@@ -245,10 +249,12 @@ int OnCalculate(const int rates_total,
                ExtBosPriceBuffer[i] = low[pindex];
                ExtBosShiftBuffer[i] = i-pindex;
                //assign_as_peak(i, true, false);  // this means: cosider the breaking candle as a peak. but lets keep it disable as it generates bad results.
+               if(ExtBosBuffer[i] == 1) Alert(_Symbol + ": bearish choch detected.");
+               if(ExtBosBuffer[i] > 1) Alert(_Symbol + ": bearish bos detected.");
             }
          }
       }
-      ExtColorBuffer[i] = 2*ExtTrendbuffer[i];
+      if(apply_color_on_trend) ExtColorBuffer[i] = 2*ExtTrendbuffer[i];
             
       //--- update win rate
       if(backtesting){
@@ -321,6 +327,6 @@ void assign_as_peak(int jpeak, bool istop, bool isbottom){
       }
       ArrayResize(PeakIndex, npeaks+1);
       PeakIndex[npeaks] = jpeak;    
-      ExtColorBuffer[jpeak] = ExtTrendbuffer[jpeak]*2 + 1;        
+      if(apply_color_on_trend) ExtColorBuffer[jpeak] = ExtTrendbuffer[jpeak]*2 + 1;        
    }
 }
