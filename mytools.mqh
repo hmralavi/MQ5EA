@@ -411,6 +411,22 @@ bool is_session_time_allowed_int(int session_start_hour, int session_end_hour){
    return timestruct.hour>=session_start_hour && timestruct.hour<=session_end_hour;
 }
 
+bool is_session_time_allowed_double(double session_start_hour, double session_end_hour){
+   MqlDateTime stime, etime;
+   datetime datetime_start, datetime_end;
+   datetime currentservertime = TimeCurrent();
+   TimeToStruct(currentservertime, stime);
+   TimeToStruct(currentservertime, etime);
+   stime.hour = floor(session_start_hour);
+   stime.min = (session_start_hour-stime.hour)*60;
+   stime.sec = 0;
+   etime.hour = floor(session_end_hour);
+   etime.min = (session_end_hour-etime.hour)*60;
+   etime.sec = 0;
+   datetime_start = StructToTime(stime);
+   datetime_end = StructToTime(etime);
+   return currentservertime>=datetime_start && currentservertime<=datetime_end;
+}
 
 double calculate_lot_size(double slpoints, double riskusd){
    double multiplier = 1;

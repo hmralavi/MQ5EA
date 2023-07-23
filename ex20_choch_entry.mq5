@@ -8,10 +8,18 @@ Strategy:
    4- place sl at the last peak
    5- consider risk percent for calculating lot size
    6- set tp accorfing to reward/risk ratio
+   
+Features:
+   1- implement news handling
+   2- use adx indicator to avoid opening position in a range market
+   
+TODO:
+   1- when trend changes, do partial close instead of closing all the volume.
 */
 
 #include <../Experts/mq5ea/mytools.mqh>
 #include <../Experts/mq5ea/prop_challenge_tools.mqh>
+#include <../Experts/mq5ea/mycalendar.mqh>
 
 enum ENUM_EARLY_EXIT_POLICY{
    EARLY_EXIT_POLICY_BREAKEVEN = 0,  // Breakeven if in loss/Instant exit if in profit
@@ -42,7 +50,11 @@ input group "Indicator settings"
 input int n_candles_peak = 6;
 input double peak_slope_min = 0;
 input int main_tf_static_or_dynamic_trendline = 0;  // main tf breakout criteria: set 1 for static or 2 for trendline, set 0 for both
-input int higher_tf_static_or_dynamic_trendline = 0;  // higher tf breakout criteria: set 1 for static or 2 for trendline, set 0 for both
+input int higher_tf_static_or_dynamic_trendline = 0;  // higher tf breakout criteria: set 1 for static or 2 for trendline, set 0 for both+
+input bool confirm_trending_market_with_adx = false;
+input ENUM_CUSTOM_TIMEFRAMES adx_timeframe = CUSTOM_TIMEFRAMES_H1;
+input bool wilder_adx = true;
+input double adx_threshold = 25;
 
 input group "Position settings"
 input ENUM_ENTER_POLICY enter_policy = ENTER_POLICY_ORDER_ON_BROKEN_LEVEL;
@@ -77,11 +89,17 @@ input double equity_stop_trading = 0;  // Stop trading if account equity is abov
 input string PositionComment = "";
 input int Magic = 200;  // EA's magic number
 
+input group "News Handling"
+input int stop_minutes_before_after_news = 0;
+input string country_name = "US";
+input string important_news = "CPI;Interest;Nonfarm;Unemployment;GDP;NFP;PMI";
+
 CTrade trade;
-int ind_handle1, ind_handle2;
+int ind_handle1, ind_handle2, adx_handle;
 ENUM_TIMEFRAMES tf;
 double risk;
 PropChallengeCriteria prop_challenge_criteria;
+CNews today_news;
 
 #define HIGH_BUFFER 1
 #define LOW_BUFFER 2
@@ -93,6 +111,7 @@ PropChallengeCriteria prop_challenge_criteria;
 #define TREND_BUFFER 12
 #define PEAK_BUFFER 13
 #define PEAK_BROKEN_BUFFER 14
+#define PENDING_ORDER_RATIO 0.7
 
 int OnInit()
 {
@@ -101,11 +120,16 @@ int OnInit()
    if(use_chart_timeframe) tf = _Period;
    else tf = convert_tf(custom_timeframe);
    bool do_backtest = winrate_min>0 || winrate_max>0 || profit_factor_min>0 || profit_factor_max>0;
-   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, peak_slope_min, main_tf_static_or_dynamic_trendline, do_backtest, backtest_period);
+   ind_handle1 = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, peak_slope_min, main_tf_static_or_dynamic_trendline, do_backtest, backtest_period, true, false);
    ChartIndicatorAdd(0, 0, ind_handle1);
    if(confirm_with_higher_timeframe){
-      ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, peak_slope_min, higher_tf_static_or_dynamic_trendline, false, backtest_period);
+      ind_handle2 = iCustom(_Symbol, convert_tf(higher_timeframe), "..\\Experts\\mq5ea\\indicators\\choch_detector.ex5", n_candles_peak, peak_slope_min, higher_tf_static_or_dynamic_trendline, false, backtest_period, true, false);
       ChartIndicatorAdd(0, 0, ind_handle2);
+   }
+   if(confirm_trending_market_with_adx){
+      ENUM_TIMEFRAMES adxtf = convert_tf(adx_timeframe);
+      if(wilder_adx) adx_handle = iADXWilder(_Symbol, adxtf, 14);
+      else adx_handle = iADX(_Symbol, adxtf, 14);
    }
    risk = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, trading_month, Magic);
@@ -117,6 +141,7 @@ void OnDeinit(const int reason)
 {
    IndicatorRelease(ind_handle1);
    IndicatorRelease(ind_handle2);
+   IndicatorRelease(adx_handle);
 }
 
 void OnTick()
@@ -144,8 +169,29 @@ void OnTick()
       }
    }
    
-   ulong pos_tickets[];
+   ulong pos_tickets[], ord_tickets[];
    GetMyPositionsTickets(Magic, pos_tickets);
+   GetMyOrdersTickets(Magic, ord_tickets);
+   
+   if(stop_minutes_before_after_news>0){
+      update_news();
+      int nnews = ArraySize(today_news.news);
+      if(nnews>0){
+         for(int inews=0;inews<nnews;inews++){
+            datetime newstime = today_news.news[inews].time;
+            int nminutes = (TimeCurrent()-newstime)/60;
+            if(MathAbs(nminutes)<=stop_minutes_before_after_news){
+               if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0){
+                  PrintFormat("%d minutes %s news `%s` with importance %d. closing the positions...", 
+                              MathAbs(nminutes),nminutes>0?"after":"before",today_news.news[inews].title, today_news.news[inews].importance);
+                  DeleteAllOrders(trade);
+                  CloseAllPositions(trade);
+               }
+               return;
+            }
+         }
+      }
+   }   
    
    if(breakeven_trigger_as_sl_ratio>0){
       int npos = ArraySize(pos_tickets);
@@ -232,6 +278,17 @@ void OnTick()
    if(profit_factor_min>0 && MathAbs(profit_points[0]/loss_points[0])<profit_factor_min) return;
    if(profit_factor_max>0 && MathAbs(profit_points[0]/loss_points[0])>profit_factor_max) return;  
    if(!is_session_time_allowed_int(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
+   if(confirm_trending_market_with_adx){
+      double adxmain[], adxplus[], adxminus[];
+      ArraySetAsSeries(adxmain, true);
+      ArraySetAsSeries(adxplus, true);
+      ArraySetAsSeries(adxminus, true);
+      CopyBuffer(adx_handle, 0, 0, 1, adxmain);
+      CopyBuffer(adx_handle, 1, 0, 1, adxplus);
+      CopyBuffer(adx_handle, 2, 0, 1, adxminus);
+      if(adxmain[0]<adx_threshold) return;
+   }
+
 
    if(trend[0]==1 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double p = 0;
@@ -246,6 +303,7 @@ void OnTick()
       p = NormalizeDouble(p, _Digits);
       double sl = find_nearest_unbroken_peak_price(false, 0, p);
       if(sl<0) return;
+      if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) p -= (p-sl)*PENDING_ORDER_RATIO;
       sl = sl - sl_points_offset*_Point;
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
@@ -277,6 +335,7 @@ void OnTick()
       p = NormalizeDouble(p, _Digits);
       double sl = find_nearest_unbroken_peak_price(true, p);
       if(sl<0) return;
+      if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) p += (sl-p)*PENDING_ORDER_RATIO;
       sl = sl + sl_points_offset*_Point;
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
@@ -402,4 +461,16 @@ double OnTester(void){
    for(int i=0;i<n;i++) Print(passed_periods[i]);
    Print("-----------------");
    return result;   
+}
+
+void update_news(){
+   static int last_day;
+   MqlDateTime today;
+   TimeToStruct(TimeCurrent(), today);
+   if(last_day != today.day){
+      last_day = today.day;
+      today_news = CNews(0,0,country_name,important_news);
+      ArrayPrint(today_news.news);
+   }
+
 }
