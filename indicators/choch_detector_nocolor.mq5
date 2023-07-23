@@ -187,8 +187,8 @@ int OnCalculate(const int rates_total,
                ExtBosPriceBuffer[i] = high[pindex];
                ExtBosShiftBuffer[i] = i-pindex;
                //assign_as_peak(i, false, true); // this means: cosider the breaking candle as a peak. but lets keep it disable as it generates bad results.
-               if(ExtBosBuffer[i] == 1 && i>rates_total-3) Alert(_Symbol + ": bullish choch detected.");
-               if(ExtBosBuffer[i] > 1 && i>rates_total-3) Alert(_Symbol + ": bullish bos detected.");
+               if(ExtBosBuffer[i] == 1 && i>rates_total-3 && enable_alert) Alert(_Symbol + ": bullish choch detected.");
+               if(ExtBosBuffer[i] > 1 && i>rates_total-3 && enable_alert) Alert(_Symbol + ": bullish bos detected.");
             }
             
          }else if(ExtPeakBuffer[pindex]==2){
@@ -223,8 +223,8 @@ int OnCalculate(const int rates_total,
                ExtBosPriceBuffer[i] = low[pindex];
                ExtBosShiftBuffer[i] = i-pindex;
                //assign_as_peak(i, true, false);  // this means: cosider the breaking candle as a peak. but lets keep it disable as it generates bad results.
-               if(ExtBosBuffer[i] == 1 && i>rates_total-3) Alert(_Symbol + ": bearish choch detected.");
-               if(ExtBosBuffer[i] > 1 && i>rates_total-3) Alert(_Symbol + ": bearish bos detected.");
+               if(ExtBosBuffer[i] == 1 && i>rates_total-3 && enable_alert) Alert(_Symbol + ": bearish choch detected.");
+               if(ExtBosBuffer[i] > 1 && i>rates_total-3 && enable_alert) Alert(_Symbol + ": bearish bos detected.");
             }
          }
       }

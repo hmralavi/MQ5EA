@@ -1,10 +1,12 @@
 #property description "HA candles with RSI"
 //--- indicator settings
 #property indicator_separate_window
-#property indicator_minimum 0
-#property indicator_maximum 100
-#property indicator_level1 50
-#property indicator_buffers 11
+#property indicator_minimum -50
+#property indicator_maximum 50
+#property indicator_level1 -20
+#property indicator_level2 0
+#property indicator_level3 20
+#property indicator_buffers 7
 #property indicator_plots   2
 
 #property indicator_type1     DRAW_COLOR_CANDLES
@@ -12,17 +14,19 @@
 #property indicator_label1    "HAO;HAH;HAL;HAC"
 
 #property indicator_type2     DRAW_COLOR_LINE
-#property indicator_color2    clrBlue
+#property indicator_color2    clrYellow
 #property indicator_label2    "RSI"
 
 //--- input parameters
 input int harsi_length=14; // RSI length for HA candles calculation
-input int rsi_length=7; // RSI length for RSI plot (source=ohlc4)
+input int harsi_smoothing_length = 7;
+input int rsi_length=7; // RSI length for RSI plot (source=hl2)
+input bool rsi_smoothing=true;
 input bool enable_alert = false;
 //--- indicator buffers
 double HAO[], HAH[], HAL[], HAC[], HAClr[]; // heiken ashi candles
 double RSI[], RSIClr[];  // RSI line based on ohlc4
-double RSIO[], RSIH[], RSIL[], RSIC[]; // RSIs based on candle open, high, low, close. these values are used for HA candles calculation.
+int rsi_hl2_handle, rsi_o_handle, rsi_h_handle, rsi_l_handle, rsi_c_handle;
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
@@ -36,15 +40,24 @@ void OnInit()
    SetIndexBuffer(4, HAClr, INDICATOR_COLOR_INDEX);
    SetIndexBuffer(5, RSI, INDICATOR_DATA);
    SetIndexBuffer(6, RSIClr, INDICATOR_COLOR_INDEX);
-   SetIndexBuffer(7, RSIO, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(8, RSIH, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(9, RSIL, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(10, RSIC, INDICATOR_CALCULATIONS);
 //--- set accuracy
    IndicatorSetInteger(INDICATOR_DIGITS, 2);
 //--- sets first bar from what index will be drawn
-   PlotIndexSetInteger(0,PLOT_DRAW_BEGIN, MathMax(harsi_length, rsi_length));
+   //PlotIndexSetInteger(0,PLOT_DRAW_BEGIN, MathMax(harsi_length, rsi_length));
+   rsi_hl2_handle = iRSI(_Symbol, _Period, rsi_length, PRICE_MEDIAN);
+   rsi_o_handle = iRSI(_Symbol, _Period, harsi_length, PRICE_OPEN);
+   rsi_h_handle = iRSI(_Symbol, _Period, harsi_length, PRICE_HIGH);
+   rsi_l_handle = iRSI(_Symbol, _Period, harsi_length, PRICE_LOW);
+   rsi_c_handle = iRSI(_Symbol, _Period, harsi_length, PRICE_CLOSE);
   }
+
+void OnDeinit(){
+   IndicatorRelease(rsi_hl2_handle);
+   IndicatorRelease(rsi_o_handle);
+   IndicatorRelease(rsi_h_handle);
+   IndicatorRelease(rsi_l_handle);
+   IndicatorRelease(rsi_c_handle);
+}
 //+------------------------------------------------------------------+
 //| Relative Strength Index                                          |
 //+------------------------------------------------------------------+
@@ -61,79 +74,58 @@ int OnCalculate(const int rates_total,
   {
    int start;
    if(prev_calculated==0){
-      ExtLBuffer[0]=low[0];
-      ExtHBuffer[0]=high[0];
-      ExtOBuffer[0]=open[0];
-      ExtCBuffer[0]=close[0];
-      start=1;
+      HAL[0] = -50;
+      HAH[0] = -50;
+      HAO[0] = -50;
+      HAC[0] = -50;
+      RSI[0] = 0;
+      start = 1;
    }else{
       start=prev_calculated-1;
    }
 
    for(int i=start; i<rates_total && !IsStopped(); i++){
-      double ha_open = (ExtOBuffer[i-1]+ExtCBuffer[i-1])/2;
-      double ha_close = (open[i]+high[i]+low[i]+close[i])/4;
-      double ha_high = MathMax(high[i],MathMax(ha_open,ha_close));
-      double ha_low = MathMin(low[i],MathMin(ha_open,ha_close));
-      ExtLBuffer[i]=ha_low;
-      ExtHBuffer[i]=ha_high;
-      ExtOBuffer[i]=ha_open;
-      ExtCBuffer[i]=ha_close;
+      if(i<harsi_length){
+         HAL[i] = -50;
+         HAH[i] = -50;
+         HAO[i] = -50;
+         HAC[i] = -50;
+         RSI[i] = 0;
+         continue;
+      }
+      double rsio[1], rsih[1], rsil[1], rsic[1];
+      CopyBuffer(rsi_o_handle, 0, rates_total-i-1, 1, rsio);
+      CopyBuffer(rsi_h_handle, 0, rates_total-i-1, 1, rsih);
+      CopyBuffer(rsi_l_handle, 0, rates_total-i-1, 1, rsil);
+      CopyBuffer(rsi_c_handle, 0, rates_total-i-1, 1, rsic);
+      rsio[0] -= 50;
+      rsih[0] -= 50;
+      rsil[0] -= 50;
+      rsic[0] -= 50;
+      double ha_open = (harsi_smoothing_length*HAO[i-1]+HAC[i-1])/(harsi_smoothing_length+1);
+      double ha_close = (rsio[0]+rsih[0]+rsil[0]+rsic[0])/4;
+      double ha_high = MathMax(MathMax(rsih[0],rsil[0]), MathMax(ha_open,ha_close));
+      double ha_low = MathMin(MathMin(rsih[0],rsil[0]), MathMin(ha_open,ha_close));
+      HAL[i] = ha_low;
+      HAH[i] = ha_high;
+      HAO[i] = ha_open;
+      HAC[i] = ha_close;
+      HAO[i] = NormalizeDouble(HAO[i], _Digits);
+      HAC[i] = NormalizeDouble(HAC[i], _Digits);
+      HAH[i] = NormalizeDouble(HAH[i], _Digits);
+      HAL[i] = NormalizeDouble(HAL[i], _Digits);
+      HAClr[i] = HAO[i]<HAC[i]? 0.0 : 1.0; // set candle color
+      
+      double rsiohlc4[1];
+      CopyBuffer(rsi_hl2_handle, 0, rates_total-i-1, 1, rsiohlc4);
+      rsiohlc4[0] -= 50;
+      if(rsi_smoothing) rsiohlc4[0] = (rsiohlc4[0]+RSI[i-1])/2;
+      RSI[i] = NormalizeDouble(rsiohlc4[0], 1);
+      RSIClr[i] = 0.0;
+      
+      if(HAClr[i-1]!=HAClr[i-2] && i==rates_total-2 && enable_alert) Alert(_Symbol + ": HARSI color changed.");
      }
 
-   if(rates_total<=ExtPeriodRSI)
-      return(0);
-      
-   int pos=prev_calculated-1;
-   if(pos<=ExtPeriodRSI)
-     {
-      double sum_pos=0.0;
-      double sum_neg=0.0;
-      //--- first RSIPeriod values of the indicator are not calculated
-      ExtRSIBuffer[0]=0.0;
-      ExtPosBuffer[0]=0.0;
-      ExtNegBuffer[0]=0.0;
-      for(int i=1; i<=ExtPeriodRSI; i++)
-        {
-         ExtRSIBuffer[i]=0.0;
-         ExtPosBuffer[i]=0.0;
-         ExtNegBuffer[i]=0.0;
-         double diff=ExtCBuffer[i]-ExtCBuffer[i-1];
-         sum_pos+=(diff>0?diff:0);
-         sum_neg+=(diff<0?-diff:0);
-        }
-      //--- calculate first visible value
-      ExtPosBuffer[ExtPeriodRSI]=sum_pos/ExtPeriodRSI;
-      ExtNegBuffer[ExtPeriodRSI]=sum_neg/ExtPeriodRSI;
-      if(ExtNegBuffer[ExtPeriodRSI]!=0.0)
-         ExtRSIBuffer[ExtPeriodRSI]=100.0-(100.0/(1.0+ExtPosBuffer[ExtPeriodRSI]/ExtNegBuffer[ExtPeriodRSI]));
-      else
-        {
-         if(ExtPosBuffer[ExtPeriodRSI]!=0.0)
-            ExtRSIBuffer[ExtPeriodRSI]=100.0;
-         else
-            ExtRSIBuffer[ExtPeriodRSI]=50.0;
-        }
-      //--- prepare the position value for main calculation
-      pos=ExtPeriodRSI+1;
-     }
-//--- the main loop of calculations
-   for(int i=pos; i<rates_total && !IsStopped(); i++)
-     {
-      double diff=ExtCBuffer[i]-ExtCBuffer[i-1];
-      ExtPosBuffer[i]=(ExtPosBuffer[i-1]*(ExtPeriodRSI-1)+(diff>0.0?diff:0.0))/ExtPeriodRSI;
-      ExtNegBuffer[i]=(ExtNegBuffer[i-1]*(ExtPeriodRSI-1)+(diff<0.0?-diff:0.0))/ExtPeriodRSI;
-      if(ExtNegBuffer[i]!=0.0)
-         ExtRSIBuffer[i]=100.0-100.0/(1+ExtPosBuffer[i]/ExtNegBuffer[i]);
-      else
-        {
-         if(ExtPosBuffer[i]!=0.0)
-            ExtRSIBuffer[i]=100.0;
-         else
-            ExtRSIBuffer[i]=50.0;
-        }
-     }
-//--- OnCalculate done. Return new prev_calculated.
    return(rates_total);
   }
 //+------------------------------------------------------------------+
