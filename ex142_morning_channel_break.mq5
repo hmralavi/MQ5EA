@@ -132,6 +132,11 @@ void OnTick()
       run_exit_policy();
       return;
    }
+  
+   if(zone_type[0]>2){
+      DeleteAllOrders(trade);
+      return;
+   }
    
    MqlDateTime current_date;
    TimeToStruct(TimeCurrent(), current_date);
