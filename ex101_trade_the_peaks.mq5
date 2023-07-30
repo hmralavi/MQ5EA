@@ -10,19 +10,26 @@ tp based on reward/risk ratio
 */
 #include <../Experts/mq5ea/mytools.mqh>
 
+input group "Time settings"
+input bool use_chart_timeframe = false;
+input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_H1;
+input bool trade_only_in_session_time = false;  // entries only in specific session time of the day
+input double session_start_hour = 9.0;      // session start hour (server time)
+input double session_end_hour = 19.0;    // session end hour (server time)    
+
 input group "Peak and trend detection"
 input int NCandlesSearch = 200;
 input int NCandlesPeak = 6;
 
 input group "Money Management"
 input double risk = 10;  // risk usd per trade
-input int sl_points_offset = 50;
+input int sl_offset_percent = 10;
 input double Rr = 4.5;  // reward/risk ratio
 
-input group "Trailing stoploss"
-input bool trailing_stoploss = true;
-input double tsl_offset_points = 300;
-input double tsl_trigger_points = 300;
+input group "Breakeven & Riskfree & TSL"
+input double breakeven_trigger_as_sl_ratio = 0;
+input double riskfree_trigger_as_tp_ratio = 0;
+input double tsl_offset_as_tp_ratio = 0;
 
 input group "Fibonacci levels"
 input double fib1 = 0.24;
@@ -34,10 +41,13 @@ int Magic = 110;
 double fiblevels[2];
 double lotlevels[2];
 CTrade trade;
+ENUM_TIMEFRAMES tf;
 
 int OnInit()
 {
    trade.SetExpertMagicNumber(Magic);
+   if(use_chart_timeframe) tf = _Period;
+   else tf = convert_tf(custom_timeframe);
    ObjectsDeleteAll(0);
    fiblevels[0] = fib1;
    fiblevels[1] = fib2;
@@ -57,18 +67,50 @@ void OnTick()
    GetMyPositionsTickets(Magic, pos_tickets);   
    int npos = ArraySize(pos_tickets);
    if(npos>0){
-      if(trailing_stoploss){
+      
+      if(breakeven_trigger_as_sl_ratio>0){
+         int npos = ArraySize(pos_tickets);
          for(int ipos=0;ipos<npos;ipos++){
-            TrailingStoploss(trade, pos_tickets[ipos], tsl_offset_points, tsl_trigger_points);         
+            PositionSelectByTicket(pos_tickets[ipos]);
+            ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+            double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
+            double curr_sl = PositionGetDouble(POSITION_SL);
+            double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
+            double curr_tp = PositionGetDouble(POSITION_TP);
+            if(pos_type==POSITION_TYPE_BUY && curr_sl<open_price && curr_tp>open_price && curr_price<open_price-(open_price-curr_sl)*breakeven_trigger_as_sl_ratio){
+               trade.PositionModify(pos_tickets[ipos], curr_sl, open_price);
+            }else if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price && curr_tp<open_price && curr_price>open_price-(open_price-curr_sl)*breakeven_trigger_as_sl_ratio){
+               trade.PositionModify(pos_tickets[ipos], curr_sl, open_price);
+            }   
+         }
+      }   
+      
+      if(riskfree_trigger_as_tp_ratio>0){
+         int npos = ArraySize(pos_tickets);
+         for(int ipos=0;ipos<npos;ipos++){
+            PositionSelectByTicket(pos_tickets[ipos]);
+            ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+            double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
+            double curr_sl = PositionGetDouble(POSITION_SL);
+            double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
+            double curr_tp = PositionGetDouble(POSITION_TP);
+            if(pos_type==POSITION_TYPE_BUY && curr_tp>open_price && curr_price>open_price+(curr_tp-open_price)*riskfree_trigger_as_tp_ratio){
+               if(curr_sl<open_price) trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+               if(tsl_offset_as_tp_ratio>0) TrailingStoploss(trade, pos_tickets[ipos], (curr_tp-open_price)*tsl_offset_as_tp_ratio/_Point);
+            }else if(pos_type==POSITION_TYPE_SELL && curr_tp<open_price && curr_price<open_price+(curr_tp-open_price)*riskfree_trigger_as_tp_ratio){
+               if(curr_sl>open_price) trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+               if(tsl_offset_as_tp_ratio>0) TrailingStoploss(trade, pos_tickets[ipos], (open_price-curr_tp)*tsl_offset_as_tp_ratio/_Point);
+            }   
          }
       }
+   
       return;
    }
    
-   if(!IsNewCandle(_Period)) return;   
+   if(!IsNewCandle(tf)) return;   
  
    PeakProperties peaks[];
-   DetectPeaks(peaks, _Period, 1, NCandlesSearch, NCandlesPeak, true);
+   DetectPeaks(peaks, tf, 1, NCandlesSearch, NCandlesPeak, true);
    ObjectsDeleteAll(0);
    ObjectsDeleteAll(0);
    ChartRedraw(0);
@@ -80,22 +122,25 @@ void OnTick()
    PlotPeaks(peaks_);
    ChartRedraw(0);
    
-   ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(_Period, 1, NCandlesSearch, NCandlesPeak, true);
-   switch(market_trend) {
-      case MARKET_TREND_BEARISH:
-         Comment("BEARISH");
-         break;
-      case MARKET_TREND_BULLISH:
-         Comment("BULLISH");
-         break;
-      default:
-         Comment("NEUTRAL");
-         break;
+   ENUM_MARKET_TREND_TYPE market_trend = DetectPeaksTrend(tf, 1, NCandlesSearch, NCandlesPeak, true);
+   if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)){
+      switch(market_trend) {
+         case MARKET_TREND_BEARISH:
+            Comment("BEARISH");
+            break;
+         case MARKET_TREND_BULLISH:
+            Comment("BULLISH");
+            break;
+         default:
+            Comment("NEUTRAL");
+            break;
+      }
    }
       
    DeleteAllOrders(trade);   
    
    if(market_trend==MARKET_TREND_NEUTRAL) return;
+   if(!is_session_time_allowed_double(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
    
    double h1,l1;
    if(peaks[0].isTop){
@@ -121,7 +166,7 @@ void OnTick()
          meanp += lotlevels[i]*p[i];
       }
       meanp /= lotsum;
-      double sl = h1 + sl_points_offset * _Point;
+      double sl = h1 + (h1-l1)*sl_offset_percent/100;
       double tp = meanp - Rr*(sl-meanp);
       double lot = calculate_lot_size((sl-meanp)/_Point, risk);
       for(int i=0;i<nlevels;i++){
@@ -137,7 +182,7 @@ void OnTick()
          meanp += lotlevels[i]*p[i];
       }
       meanp /= lotsum;
-      double sl = l1 - sl_points_offset * _Point;
+      double sl = l1 - (h1-l1)*sl_offset_percent/100;
       double tp = meanp + Rr*(meanp-sl);
       double lot = calculate_lot_size((meanp-sl)/_Point, risk);
       for(int i=0;i<nlevels;i++){

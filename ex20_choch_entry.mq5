@@ -33,7 +33,7 @@ enum ENUM_TP_POLICY{
 
 enum ENUM_ENTER_POLICY{
    ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE = 0,  // instant entry on candle close
-   ENTER_POLICY_ORDER_ON_BROKEN_LEVEL = 1  // pending order on the broken level
+   ENTER_POLICY_PENDING_OEDRDER = 1  // pending order
 };
 
 input group "Time settings"
@@ -57,7 +57,8 @@ input bool wilder_adx = true;
 input double adx_threshold = 25;
 
 input group "Position settings"
-input ENUM_ENTER_POLICY enter_policy = ENTER_POLICY_ORDER_ON_BROKEN_LEVEL;
+input ENUM_ENTER_POLICY enter_policy = ENTER_POLICY_PENDING_OEDRDER;
+input double pending_order_ratio = 0.5; // pending order ratio, 0 broken level, 1 on sl
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
 input int min_bos_number = 0;
 input int max_bos_number = 0;
@@ -111,7 +112,6 @@ CNews today_news;
 #define TREND_BUFFER 12
 #define PEAK_BUFFER 13
 #define PEAK_BROKEN_BUFFER 14
-#define PENDING_ORDER_RATIO 0.7
 
 int OnInit()
 {
@@ -293,7 +293,7 @@ void OnTick()
    if(trend[0]==1 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double p = 0;
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL){
+      else if(enter_policy==ENTER_POLICY_PENDING_OEDRDER){
          DeleteAllOrders(trade);
          double broken_level[];
          ArraySetAsSeries(broken_level, true);
@@ -303,7 +303,7 @@ void OnTick()
       p = NormalizeDouble(p, _Digits);
       double sl = find_nearest_unbroken_peak_price(false, 0, p);
       if(sl<0) return;
-      if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) p -= (p-sl)*PENDING_ORDER_RATIO;
+      if(enter_policy==ENTER_POLICY_PENDING_OEDRDER) p -= (p-sl)*pending_order_ratio;
       sl = sl - sl_points_offset*_Point;
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
@@ -320,12 +320,12 @@ void OnTick()
       double lot_size = normalize_volume(calculate_lot_size((p-sl)/_Point, risk));
       
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
-      else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) trade.BuyLimit(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);      
+      else if(enter_policy==ENTER_POLICY_PENDING_OEDRDER) trade.BuyLimit(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);      
    
    }else if(trend[0]==2 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
       double p = 0;
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL){
+      else if(enter_policy==ENTER_POLICY_PENDING_OEDRDER){
          DeleteAllOrders(trade);
          double broken_level[];
          ArraySetAsSeries(broken_level, true);
@@ -335,7 +335,7 @@ void OnTick()
       p = NormalizeDouble(p, _Digits);
       double sl = find_nearest_unbroken_peak_price(true, p);
       if(sl<0) return;
-      if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) p += (sl-p)*PENDING_ORDER_RATIO;
+      if(enter_policy==ENTER_POLICY_PENDING_OEDRDER) p += (sl-p)*pending_order_ratio;
       sl = sl + sl_points_offset*_Point;
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
@@ -352,7 +352,7 @@ void OnTick()
       double lot_size = normalize_volume(calculate_lot_size((sl-p)/_Point, risk));
       
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) trade.Sell(lot_size, _Symbol, p, sl, tp, PositionComment);
-      else if(enter_policy==ENTER_POLICY_ORDER_ON_BROKEN_LEVEL) trade.SellLimit(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);      
+      else if(enter_policy==ENTER_POLICY_PENDING_OEDRDER) trade.SellLimit(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);      
    }
 
 }

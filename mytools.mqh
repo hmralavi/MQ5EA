@@ -247,7 +247,7 @@ void PlotPeaks(PeakProperties& peaks[], int width=1){
    for(int i=0; i<npeaks; i++){
       string objname = peaks[i].isTop?"peak"+IntegerToString(i,3,'0')+"_top":"peak"+IntegerToString(i,3,'0')+"_bottom";
       ENUM_OBJECT objtype = peaks[i].isTop?OBJ_ARROW_DOWN:OBJ_ARROW_UP;
-      color objclr = peaks[i].isTop?clrBlack:clrBlue;
+      color objclr = peaks[i].isTop?clrYellow:clrBlue;
       double value = peaks[i].isTop?peaks[i].main_candle.high+60*_Point:peaks[i].main_candle.low-10*_Point;
       ObjectCreate(0, objname, objtype, 0, peaks[i].main_candle.time, value);
       ObjectSetInteger(0, objname, OBJPROP_COLOR, objclr);
