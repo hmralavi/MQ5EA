@@ -60,6 +60,7 @@ input group "Position settings"
 input ENUM_ENTER_POLICY enter_policy = ENTER_POLICY_PENDING_OEDRDER;
 input double pending_order_ratio = 0.5; // pending order ratio, 0 broken level, 1 on sl
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
+input int valid_range_min_points = 0;
 input int min_bos_number = 0;
 input int max_bos_number = 0;
 input double winrate_min = 0;
@@ -306,6 +307,7 @@ void OnTick()
       p = NormalizeDouble(p, _Digits);
       double sl = find_nearest_unbroken_peak_price(false, 0, p);
       if(sl<0) return;
+      if(MathAbs(broken_level[0]-sl)/_Point<valid_range_min_points) return;
       if(enter_policy==ENTER_POLICY_PENDING_OEDRDER) p -= (p-sl)*pending_order_ratio;
       sl -= (broken_level[0]-sl)*sl_percent_offset/100;
       double tp;
@@ -337,6 +339,7 @@ void OnTick()
       p = NormalizeDouble(p, _Digits);
       double sl = find_nearest_unbroken_peak_price(true, p);
       if(sl<0) return;
+      if(MathAbs(broken_level[0]-sl)/_Point<valid_range_min_points) return;
       if(enter_policy==ENTER_POLICY_PENDING_OEDRDER) p += (sl-p)*pending_order_ratio;
       sl += (sl-broken_level[0])*sl_percent_offset/100;
       double tp;
@@ -461,7 +464,7 @@ double OnTester(void){
    Print("-----------------");
    for(int i=0;i<n;i++) Print(passed_periods[i]);
    Print("-----------------");
-   return result;   
+   return NormalizeDouble(100*result,0);   
 }
 
 void update_news(){
