@@ -70,13 +70,14 @@ input int backtest_period = 10;
 
 input group "Risk settings"
 input double risk_original = 100;  // risk usd per trade
-input double sl_points_offset = 100;  // sl points offset from peak
+input double sl_percent_offset = 5;  // sl percent offset from peak
 input ENUM_TP_POLICY tp_policy = TP_POLICY_BASED_ON_PEAK;
 input double Rr = 2;  // fixed(minimum) reward/risk ratio 
 
-input group "Breakeven & Riskfree"
+input group "Breakeven & Riskfree & TSL"
 input double breakeven_trigger_as_sl_ratio = 0;
 input double riskfree_trigger_as_tp_ratio = 0;
+input double tsl_offset_as_tp_ratio = 0;
 
 input group "Optimization criteria for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
@@ -219,10 +220,12 @@ void OnTick()
          double curr_sl = PositionGetDouble(POSITION_SL);
          double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
          double curr_tp = PositionGetDouble(POSITION_TP);
-         if(pos_type==POSITION_TYPE_BUY && curr_sl<open_price && curr_tp>open_price && curr_price>open_price+(curr_tp-open_price)*riskfree_trigger_as_tp_ratio){
-            trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
-         }else if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price && curr_tp<open_price && curr_price<open_price+(curr_tp-open_price)*riskfree_trigger_as_tp_ratio){
-            trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+         if(pos_type==POSITION_TYPE_BUY && curr_tp>open_price && curr_price>open_price+(curr_tp-open_price)*riskfree_trigger_as_tp_ratio){
+            if(curr_sl<open_price) trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+            if(tsl_offset_as_tp_ratio>0) TrailingStoploss(trade, pos_tickets[ipos], (curr_tp-open_price)*tsl_offset_as_tp_ratio/_Point);
+         }else if(pos_type==POSITION_TYPE_SELL && curr_tp<open_price && curr_price<open_price+(curr_tp-open_price)*riskfree_trigger_as_tp_ratio){
+            if(curr_sl>open_price) trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+            if(tsl_offset_as_tp_ratio>0) TrailingStoploss(trade, pos_tickets[ipos], (open_price-curr_tp)*tsl_offset_as_tp_ratio/_Point);
          }   
       }
    }
@@ -292,25 +295,24 @@ void OnTick()
 
    if(trend[0]==1 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==1 && confirm_with_higher_timeframe))){  // enter buy
       double p = 0;
+      double broken_level[];
+      ArraySetAsSeries(broken_level, true);
+      CopyBuffer(ind_handle1, BROKEN_LEVEL_BUFFER, 1, 1, broken_level);
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       else if(enter_policy==ENTER_POLICY_PENDING_OEDRDER){
          DeleteAllOrders(trade);
-         double broken_level[];
-         ArraySetAsSeries(broken_level, true);
-         CopyBuffer(ind_handle1, BROKEN_LEVEL_BUFFER, 1, 1, broken_level);
          p = broken_level[0];
       }
       p = NormalizeDouble(p, _Digits);
       double sl = find_nearest_unbroken_peak_price(false, 0, p);
       if(sl<0) return;
       if(enter_policy==ENTER_POLICY_PENDING_OEDRDER) p -= (p-sl)*pending_order_ratio;
-      sl = sl - sl_points_offset*_Point;
+      sl -= (broken_level[0]-sl)*sl_percent_offset/100;
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
          double mintp = p + (p - sl) * Rr;
          tp = find_nearest_unbroken_peak_price(true, mintp);
          if(tp<0) return;
-         tp = tp - sl_points_offset*_Point;
       }else if(tp_policy == TP_POLICY_BASED_ON_FIXED_RR){
          tp = p + (p - sl) * Rr;
       }
@@ -324,25 +326,24 @@ void OnTick()
    
    }else if(trend[0]==2 && (bos[0]!=bos[1] || trend[0]!=trend[1]) && (!confirm_with_higher_timeframe || (higher_trend[0]==2 && confirm_with_higher_timeframe))){  // enter sell
       double p = 0;
+      double broken_level[];
+      ArraySetAsSeries(broken_level, true);
+      CopyBuffer(ind_handle1, BROKEN_LEVEL_BUFFER, 1, 1, broken_level);
       if(enter_policy==ENTER_POLICY_INSTANT_ON_CANDLE_CLOSE) p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       else if(enter_policy==ENTER_POLICY_PENDING_OEDRDER){
          DeleteAllOrders(trade);
-         double broken_level[];
-         ArraySetAsSeries(broken_level, true);
-         CopyBuffer(ind_handle1, BROKEN_LEVEL_BUFFER, 1, 1, broken_level);
          p = broken_level[0];
       }
       p = NormalizeDouble(p, _Digits);
       double sl = find_nearest_unbroken_peak_price(true, p);
       if(sl<0) return;
       if(enter_policy==ENTER_POLICY_PENDING_OEDRDER) p += (sl-p)*pending_order_ratio;
-      sl = sl + sl_points_offset*_Point;
+      sl += (sl-broken_level[0])*sl_percent_offset/100;
       double tp;
       if(tp_policy == TP_POLICY_BASED_ON_PEAK){
          double mintp = p - (sl - p) * Rr;
          tp = find_nearest_unbroken_peak_price(false, 0, mintp);
          if(tp<0) return;
-         tp = tp + sl_points_offset*_Point;
       }else if(tp_policy == TP_POLICY_BASED_ON_FIXED_RR){
          tp = p - (sl - p) * Rr;
       }

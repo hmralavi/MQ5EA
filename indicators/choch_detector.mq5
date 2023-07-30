@@ -167,7 +167,7 @@ int OnCalculate(const int rates_total,
          if(ISRED(jnode+1) && ISGREEN(jnode) && ISRED(jnode-1) && close[jnode+1]<close[jnode-1] && high[jnode]<open[jnode-1] && low[jnode]>close[jnode+1] && MathAbs(low[jnode-2]-high[jnode-1])/SPREAD(jnode-1)<0.7){
             top = true;
          }
-         assign_as_peak(jnode, top, bottom);         
+         //assign_as_peak(jnode, top, bottom);         
       }
       
       //--------------------------------
