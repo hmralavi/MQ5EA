@@ -185,6 +185,7 @@ int OnCalculate(const int rates_total,
             bool trend_line_broken = false;
             bool trend_line_broken1 = false;
             bool trend_line_broken2 = false;
+            double trend_line_price;
             trend_line_broken1 = close[i]>high[pindex];
             if(static_dynamic_support_resistant==0 || static_dynamic_support_resistant==2){
                int pindex_before = -1;
@@ -200,7 +201,10 @@ int OnCalculate(const int rates_total,
                      break;
                   }
                }
-               if(pindex_before>0) trend_line_broken2 = close[i]>calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
+               if(pindex_before>0){
+                  trend_line_price = calc_trend_line_price(high[pindex_before], pindex_before, high[pindex], pindex, i);
+                  trend_line_broken2 = close[i]>trend_line_price;
+               }
             }
             if(static_dynamic_support_resistant==0) trend_line_broken = trend_line_broken1 || trend_line_broken2;
             if(static_dynamic_support_resistant==1) trend_line_broken = trend_line_broken1;
@@ -210,8 +214,13 @@ int OnCalculate(const int rates_total,
                ExtPeakBrokenBuffer[pindex] = 1;
                if(ExtTrendbuffer[i]!= ExtTrendbuffer[i-1]) ExtBosBuffer[i] = 1;
                else ExtBosBuffer[i] = ExtBosBuffer[i-1]+1;
-               ExtBosPriceBuffer[i] = high[pindex];
-               ExtBosShiftBuffer[i] = i-pindex;
+               if(trend_line_broken1){
+                  ExtBosPriceBuffer[i] = high[pindex];
+                  ExtBosShiftBuffer[i] = i-pindex;
+               }else{
+                  ExtBosPriceBuffer[i] = MathMax(MathMax(open[i-1], close[i-1]), trend_line_price);
+                  ExtBosShiftBuffer[i] = 1;
+               }
                //assign_as_peak(i, false, true); // this means: cosider the breaking candle as a peak. but lets keep it disable as it generates bad results.
                if(ExtBosBuffer[i] == 1 && i>rates_total-3 && enable_alert) Alert(_Symbol + ": bullish choch detected.");
                if(ExtBosBuffer[i] > 1 && i>rates_total-3 && enable_alert) Alert(_Symbol + ": bullish bos detected.");
@@ -220,7 +229,8 @@ int OnCalculate(const int rates_total,
          }else if(ExtPeakBuffer[pindex]==2){
             bool trend_line_broken = false;
             bool trend_line_broken1 = false;
-            bool trend_line_broken2 = false;            
+            bool trend_line_broken2 = false;
+            double trend_line_price;
             trend_line_broken1 = close[i]<low[pindex];
             if(static_dynamic_support_resistant==0 || static_dynamic_support_resistant==2){
                int pindex_before = -1;
@@ -236,7 +246,10 @@ int OnCalculate(const int rates_total,
                      break;
                   }
                }               
-               if(pindex_before>0) trend_line_broken2 = close[i]<calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);
+               if(pindex_before>0){
+                  trend_line_price = calc_trend_line_price(low[pindex_before], pindex_before, low[pindex], pindex, i);
+                  trend_line_broken2 = close[i]<trend_line_price;
+               }
             }
             if(static_dynamic_support_resistant==0) trend_line_broken = trend_line_broken1 || trend_line_broken2;
             if(static_dynamic_support_resistant==1) trend_line_broken = trend_line_broken1;
@@ -246,8 +259,13 @@ int OnCalculate(const int rates_total,
                ExtPeakBrokenBuffer[pindex] = 1;
                if(ExtTrendbuffer[i]!= ExtTrendbuffer[i-1]) ExtBosBuffer[i] = 1;
                else ExtBosBuffer[i] = ExtBosBuffer[i-1]+1;
-               ExtBosPriceBuffer[i] = low[pindex];
-               ExtBosShiftBuffer[i] = i-pindex;
+               if(trend_line_broken1){
+                  ExtBosPriceBuffer[i] = low[pindex];
+                  ExtBosShiftBuffer[i] = i-pindex;
+               }else{
+                  ExtBosPriceBuffer[i] = MathMin(MathMin(open[i-1], close[i-1]), trend_line_price);
+                  ExtBosShiftBuffer[i] = 1;              
+               }
                //assign_as_peak(i, true, false);  // this means: cosider the breaking candle as a peak. but lets keep it disable as it generates bad results.
                if(ExtBosBuffer[i] == 1 && i>rates_total-3 && enable_alert) Alert(_Symbol + ": bearish choch detected.");
                if(ExtBosBuffer[i] > 1 && i>rates_total-3 && enable_alert) Alert(_Symbol + ": bearish bos detected.");
