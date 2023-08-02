@@ -80,7 +80,7 @@ input double breakeven_trigger_as_sl_ratio = 0;
 input double riskfree_trigger_as_tp_ratio = 0;
 input double tsl_offset_as_tp_ratio = 0;
 
-input group "Optimization criteria for prop challenge"
+input group "Run for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
 input double prop_challenge_min_profit_usd = 800; // Min profit desired(usd);
 input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(usd);
@@ -458,14 +458,44 @@ void run_early_exit_policy(void){
 }
 
 double OnTester(void){
-   datetime passed_periods[];
-   double result = prop_challenge_criteria.get_results(passed_periods);
-   int n = ArraySize(passed_periods);
-   Print("PASSED PERIODS");
-   Print("-----------------");
-   for(int i=0;i<n;i++) Print(passed_periods[i]);
-   Print("-----------------");
-   return NormalizeDouble(100*result,0);   
+   double wins = 0;  // number of challenges won
+   double failures = 0; // number of challenges failed
+   double all = 0; // number of all challenges taken
+   HistorySelect(0, TimeCurrent()+10);
+   int ndeals = HistoryDealsTotal();
+   double prof = 0;
+   datetime start_date;
+   bool new_challenge = true;
+   for(int i=1;i<ndeals;i++){
+      if(new_challenge){
+         all++;
+         prof = 0;
+         start_date = HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
+         new_challenge = false;
+      }
+      ulong dealticket = HistoryDealGetTicket(i);
+      prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
+      datetime current_date = HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
+      if(prof<=-prop_challenge_max_drawdown_usd){
+         failures++;
+         new_challenge = true;
+      }else if(prof>=prop_challenge_min_profit_usd){
+         wins++;
+         new_challenge = true;
+      }else if((current_date-start_date)/86400>30 && prof>=0){
+         new_challenge = true;
+      }else if((current_date-start_date)/86400>30 && prof<0){
+         failures++;
+         new_challenge = true;
+      }
+   }
+   Print("---------------------------\nProp challenge report");
+   Print("Number of all challenges:\t" + int(all));
+   Print("Number of win challenges:\t" + int(wins) + " (" + int(100*wins/all) + "%)");
+   Print("Number of fail challenges:\t" + int(failures) + " (" + int(100*failures/all) + "%)");
+   Print("Number of neutral challenges:\t" + int(all-wins-failures) + " (" + int(100*(all-wins-failures)/all) + "%)");
+   Print("---------------------------");
+   return NormalizeDouble(100*wins/all,2);
 }
 
 void update_news(){
