@@ -22,7 +22,10 @@ input double session_start_hour = 5.0;      // session start hour (server time)
 input double session_end_hour = 13.0;    // session end hour (server time)    
 
 input group "Indicator settings"
-input int ssl_period = 14; // main SSL period
+input int ssl_period = 14; // SSL period
+input int rsi_period = 0; // RSI period (set 0 to disable)
+input double rsi_threshold_from_mid = 20; // RSI threshold offset from middle
+input int rsi_ncandles = 3; // ncandles for RSI backward search 
 
 input group "Position settings"
 input double risk_original = 100;  // risk usd per trade
@@ -68,9 +71,11 @@ int OnInit()
    if(use_custom_timeframe) tf = convert_tf(custom_timeframe);
    else tf = _Period;
    ssl_handle = iCustom(_Symbol, tf, "ssl.ex5", ssl_period, true, 0);
-   rsi_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\HARSI.ex5");
    ChartIndicatorAdd(0, 0, ssl_handle);
-   ChartIndicatorAdd(0, 0, rsi_handle);
+   if(rsi_period>0){
+      rsi_handle = iRSI(_Symbol, tf, rsi_period, PRICE_MEDIAN);
+      ChartIndicatorAdd(0, 0, rsi_handle);
+   }
    risk = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, MONTH_ALL, Magic);
    return(INIT_SUCCEEDED);
@@ -80,6 +85,7 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    IndicatorRelease(ssl_handle);
+   IndicatorRelease(rsi_handle);
 }
 
 void OnTick()
@@ -177,7 +183,7 @@ void OnTick()
    
    if(!is_session_time_allowed_double(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
 
-   if(ssl_buy){  // enter buy
+   if(ssl_buy && rsi_confirmed(true)){  // enter buy
       double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double ssl = get_ssl_upper(1);
       //double sl = ssl - MathAbs(p-ssl)*sl_percent_offset/100;
@@ -189,8 +195,8 @@ void OnTick()
       double tp = 0;
       if(Rr>0) tp = p + (p-sl)*Rr;
       tp = NormalizeDouble(tp, _Digits);
-      trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
-   }else if(ssl_sell){  // enter sell
+       trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
+   }else if(ssl_sell && rsi_confirmed(false)){  // enter sell
       double p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double ssl = get_ssl_lower(1);
       //double sl = ssl + MathAbs(p-ssl)*sl_percent_offset/100;
@@ -230,6 +236,23 @@ double get_ssl_sell(int shift=0){
    double val[1];
    CopyBuffer(ssl_handle, SSL_SELL_BUFFER, shift, 1, val);
    return val[0];
+}
+
+bool rsi_confirmed(bool buy_or_sell){
+   if(rsi_period<=0) return true;
+   double rsival[];
+   ArraySetAsSeries(rsival, true);
+   CopyBuffer(rsi_handle, 0, 0, rsi_ncandles, rsival);
+   bool threshold_touched = false;
+   for(int i=0;i<rsi_ncandles;i++){
+      if(buy_or_sell && (rsival[i]<=50-rsi_threshold_from_mid)) threshold_touched = true;
+      if(!buy_or_sell && (rsival[i]>=50+rsi_threshold_from_mid)) threshold_touched = true;  
+      if(threshold_touched) break;
+   }
+   if(threshold_touched) return true;
+   if(buy_or_sell && rsival[0]>=50 && threshold_touched) return true;
+   if(!buy_or_sell && rsival[0]<=50 && threshold_touched) return true;
+   return false;   
 }
 
 
