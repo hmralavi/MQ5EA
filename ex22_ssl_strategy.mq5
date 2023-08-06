@@ -23,7 +23,6 @@ input double session_end_hour = 13.0;    // session end hour (server time)
 
 input group "Indicator settings"
 input int ssl_period = 14; // main SSL period
-input int trend_ssl_period = 0; // trend SSL period (set 0 to disable)
 
 input group "Position settings"
 input double risk_original = 100;  // risk usd per trade
@@ -51,7 +50,7 @@ input string country_name = "US";
 input string important_news = "CPI;Interest;Nonfarm;Unemployment;GDP;NFP;PMI";
 
 CTrade trade;
-int ssl_handle, trend_ssl_handle, rsi_handle;
+int ssl_handle, rsi_handle;
 ENUM_TIMEFRAMES tf;
 double risk;
 PropChallengeCriteria prop_challenge_criteria;
@@ -69,10 +68,8 @@ int OnInit()
    if(use_custom_timeframe) tf = convert_tf(custom_timeframe);
    else tf = _Period;
    ssl_handle = iCustom(_Symbol, tf, "ssl.ex5", ssl_period, true, 0);
-   if(trend_ssl_period>0) trend_ssl_handle = iCustom(_Symbol, tf, "ssl.ex5", trend_ssl_period, true, 0);
    rsi_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\HARSI.ex5");
    ChartIndicatorAdd(0, 0, ssl_handle);
-   ChartIndicatorAdd(0, 0, trend_ssl_handle);
    ChartIndicatorAdd(0, 0, rsi_handle);
    risk = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, MONTH_ALL, Magic);
@@ -181,9 +178,6 @@ void OnTick()
    if(!is_session_time_allowed_double(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
 
    if(ssl_buy){  // enter buy
-      if(trend_ssl_period>0){
-         if(get_trend_ssl_upper()==EMPTY_VALUE) return;
-      }
       double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double ssl = get_ssl_upper(1);
       //double sl = ssl - MathAbs(p-ssl)*sl_percent_offset/100;
@@ -197,9 +191,6 @@ void OnTick()
       tp = NormalizeDouble(tp, _Digits);
       trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
    }else if(ssl_sell){  // enter sell
-      if(trend_ssl_period>0){
-         if(get_trend_ssl_lower()==EMPTY_VALUE) return;
-      }
       double p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double ssl = get_ssl_lower(1);
       //double sl = ssl + MathAbs(p-ssl)*sl_percent_offset/100;
@@ -241,17 +232,6 @@ double get_ssl_sell(int shift=0){
    return val[0];
 }
 
-double get_trend_ssl_upper(int shift=0){
-   double val[1];
-   CopyBuffer(trend_ssl_handle, SSL_UPPER_BUFFER, shift, 1, val);
-   return val[0];
-}
-
-double get_trend_ssl_lower(int shift=0){
-   double val[1];
-   CopyBuffer(trend_ssl_handle, SSL_LOWER_BUFFER, shift, 1, val);
-   return val[0];
-}
 
 void run_early_exit_policy(void){
    if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT){
