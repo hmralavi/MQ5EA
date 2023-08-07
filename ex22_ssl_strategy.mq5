@@ -28,8 +28,9 @@ input double rsi_threshold_from_mid = 20; // RSI threshold offset from middle
 input int rsi_ncandles = 3; // ncandles for RSI backward search 
 
 input group "Position settings"
+input int stop_limit_offset_points = 0;  // stop limit offset points (set 0 for instant entry)
 input double risk_original = 100;  // risk usd per trade
-input double Rr = 4.0; // reward/risk ratio (set 0 to remove tp)
+input double Rr = 0.0; // reward/risk ratio (set 0 to remove tp)
 input int sl_offset_points = 0;  // sl offset points from ssl
 input int tsl_offset_points = 0;  //TSL offset points from ssl (set 0 to disable TSL)
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
@@ -73,7 +74,7 @@ int OnInit()
    ssl_handle = iCustom(_Symbol, tf, "ssl.ex5", ssl_period, true, 0);
    ChartIndicatorAdd(0, 0, ssl_handle);
    if(rsi_period>0){
-      rsi_handle = iRSI(_Symbol, tf, rsi_period, PRICE_MEDIAN);
+      rsi_handle = iRSI(_Symbol, tf, rsi_period, PRICE_CLOSE);
       ChartIndicatorAdd(0, 1, rsi_handle);
    }
    risk = risk_original;
@@ -185,9 +186,9 @@ void OnTick()
 
    if(ssl_buy && rsi_confirmed(true)){  // enter buy
       double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      if(stop_limit_offset_points>0) p = MathMax(iHigh(_Symbol, tf, 1), p) + stop_limit_offset_points*_Point;
       double ssl = get_ssl_upper(1);
-      //double sl = ssl - MathAbs(p-ssl)*sl_percent_offset/100;
-      double sl = ssl - sl_offset_points*_Point;
+      double sl = MathMin(ssl, iLow(_Symbol, tf, 1)) - sl_offset_points*_Point;
       if(p<sl) return;
       double lot_size = normalize_volume(calculate_lot_size((p-sl)/_Point, risk));
       p = NormalizeDouble(p, _Digits);
@@ -195,12 +196,13 @@ void OnTick()
       double tp = 0;
       if(Rr>0) tp = p + (p-sl)*Rr;
       tp = NormalizeDouble(tp, _Digits);
-       trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
+      if(stop_limit_offset_points>0) trade.BuyStop(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);
+      else trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
    }else if(ssl_sell && rsi_confirmed(false)){  // enter sell
       double p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      if(stop_limit_offset_points>0) p = MathMin(iLow(_Symbol, tf, 1), p) - stop_limit_offset_points*_Point;
       double ssl = get_ssl_lower(1);
-      //double sl = ssl + MathAbs(p-ssl)*sl_percent_offset/100;
-      double sl = ssl + sl_offset_points*_Point;
+      double sl = MathMax(ssl, iHigh(_Symbol, tf, 1)) + sl_offset_points*_Point;
       if(p>sl) return;
       double lot_size = normalize_volume(calculate_lot_size((sl-p)/_Point, risk));
       p = NormalizeDouble(p, _Digits);
@@ -208,7 +210,8 @@ void OnTick()
       double tp = 0;
       if(Rr>0) tp = p + (p-sl)*Rr;
       tp = NormalizeDouble(tp, _Digits);
-      trade.Sell(lot_size, _Symbol, p, sl, tp, PositionComment);
+      if(stop_limit_offset_points>0) trade.SellStop(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);
+      else trade.Sell(lot_size, _Symbol, p, sl, tp, PositionComment);
    }
 
 }
@@ -243,15 +246,14 @@ bool rsi_confirmed(bool buy_or_sell){
    double rsival[];
    ArraySetAsSeries(rsival, true);
    CopyBuffer(rsi_handle, 0, 0, rsi_ncandles, rsival);
-   bool threshold_touched = false;
+   bool threshold_touched = true;  // setting this to true disables threshold touch functionality
    for(int i=0;i<rsi_ncandles;i++){
       if(buy_or_sell && (rsival[i]<=50-rsi_threshold_from_mid)) threshold_touched = true;
       if(!buy_or_sell && (rsival[i]>=50+rsi_threshold_from_mid)) threshold_touched = true;  
       if(threshold_touched) break;
    }
-   if(threshold_touched) return true;
-   if(buy_or_sell && rsival[0]>=50 && threshold_touched) return true;
-   if(!buy_or_sell && rsival[0]<=50 && threshold_touched) return true;
+   if(buy_or_sell && rsival[1]>=50 && threshold_touched) return true;
+   if(!buy_or_sell && rsival[1]<=50 && threshold_touched) return true;
    return false;   
 }
 
