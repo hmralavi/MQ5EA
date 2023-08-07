@@ -74,7 +74,7 @@ int OnInit()
    ChartIndicatorAdd(0, 0, ssl_handle);
    if(rsi_period>0){
       rsi_handle = iRSI(_Symbol, tf, rsi_period, PRICE_MEDIAN);
-      ChartIndicatorAdd(0, 0, rsi_handle);
+      ChartIndicatorAdd(0, 1, rsi_handle);
    }
    risk = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, MONTH_ALL, Magic);
