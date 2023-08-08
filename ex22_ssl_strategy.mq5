@@ -24,8 +24,6 @@ input double session_end_hour = 13.0;    // session end hour (server time)
 input group "Indicator settings"
 input int ssl_period = 14; // SSL period
 input int rsi_period = 0; // RSI period (set 0 to disable)
-input double rsi_threshold_from_mid = 20; // RSI threshold offset from middle
-input int rsi_ncandles = 3; // ncandles for RSI backward search 
 
 input group "Position settings"
 input int stop_limit_offset_points = 0;  // stop limit offset points (set 0 for instant entry)
@@ -245,15 +243,9 @@ bool rsi_confirmed(bool buy_or_sell){
    if(rsi_period<=0) return true;
    double rsival[];
    ArraySetAsSeries(rsival, true);
-   CopyBuffer(rsi_handle, 0, 0, rsi_ncandles, rsival);
-   bool threshold_touched = true;  // setting this to true disables threshold touch functionality
-   for(int i=0;i<rsi_ncandles;i++){
-      if(buy_or_sell && (rsival[i]<=50-rsi_threshold_from_mid)) threshold_touched = true;
-      if(!buy_or_sell && (rsival[i]>=50+rsi_threshold_from_mid)) threshold_touched = true;  
-      if(threshold_touched) break;
-   }
-   if(buy_or_sell && rsival[1]>=50 && threshold_touched) return true;
-   if(!buy_or_sell && rsival[1]<=50 && threshold_touched) return true;
+   CopyBuffer(rsi_handle, 0, 1, 1, rsival);
+   if(buy_or_sell && rsival[0]>=50) return true;
+   if(!buy_or_sell && rsival[0]<=50) return true;
    return false;   
 }
 
