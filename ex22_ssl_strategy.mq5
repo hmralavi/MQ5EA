@@ -172,7 +172,7 @@ void OnTick()
       //   double risk_to_reach_drawdown = period_prof + prop_challenge_max_drawdown_usd;
       //   risk = MathMin(risk_original, risk_to_reach_drawdown);
       //}
-      if(today_profit-risk*1.01<=-prop_challenge_daily_loss_limit) return;
+      risk = MathMax(MathMin(risk_original, prop_challenge_daily_loss_limit+today_profit), 0);
       //if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
    }
    
@@ -320,7 +320,7 @@ double OnTester(void){
    Print("Number of neutral challenges:\t" + int(all-wins-failures) + " (" + int(100*(all-wins-failures)/all) + "%)");
    Print("---------------------------");
    if(all==0) return 0;
-   return NormalizeDouble(100*wins/all,2);
+   return NormalizeDouble(100*wins/all, 2);
 }
 
 void update_news(){
