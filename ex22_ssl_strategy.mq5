@@ -36,7 +36,7 @@ input double risk_original = 100;  // risk usd per trade
 input double Rr = 0.0; // reward/risk ratio (set 0 to disable tp)
 input int sl_offset_points = 0;  // sl offset points from ssl
 input int tsl_offset_points = 0;  //TSL offset points from ssl (set 0 to disable)
-input int riskfree_points = 0;  // RiskFree points (set 0 to disable)                          TOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+input double riskfree_ratio = 0.0;  // RiskFree (proportion of SL) (set 0 to disable)
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
 
 input group "Run for prop challenge"
@@ -141,7 +141,25 @@ void OnTick()
             }
          }
       }
-   } 
+   }
+   
+   if(riskfree_ratio>0){
+      int npos = ArraySize(pos_tickets);
+      for(int ipos=0;ipos<npos;ipos++){
+         PositionSelectByTicket(pos_tickets[ipos]);
+         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
+         double curr_sl = PositionGetDouble(POSITION_SL);
+         double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
+         double curr_tp = PositionGetDouble(POSITION_TP);
+         if(pos_type==POSITION_TYPE_BUY && curr_sl<open_price && (curr_price-open_price)>=riskfree_ratio*(open_price-curr_sl)){
+            trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+         }else if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price && (open_price-curr_price)>=riskfree_ratio*(curr_sl-open_price)){
+            trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+         }   
+      }  
+   
+   }
      
    if(tsl_offset_points>0){
       int npos = ArraySize(pos_tickets);
