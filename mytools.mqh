@@ -153,7 +153,7 @@ void CloseAllPositions(CTrade& trade){
 
 void RiskFree(CTrade& trade, ulong pos_ticket){
    PositionSelectByTicket(pos_ticket);
-   ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+   ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
    string current_sym = PositionGetString(POSITION_SYMBOL);
    double current_sl = PositionGetDouble(POSITION_SL);
    double current_tp = PositionGetDouble(POSITION_TP);
@@ -168,7 +168,7 @@ void RiskFree(CTrade& trade, ulong pos_ticket){
 
 void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double trigger_points=0){
    PositionSelectByTicket(pos_ticket);
-   ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+   ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
    string current_sym = PositionGetString(POSITION_SYMBOL);
    double current_sl = PositionGetDouble(POSITION_SL);
    double current_tp = PositionGetDouble(POSITION_TP);
@@ -417,11 +417,11 @@ bool is_session_time_allowed_double(double session_start_hour, double session_en
    datetime currentservertime = TimeCurrent();
    TimeToStruct(currentservertime, stime);
    TimeToStruct(currentservertime, etime);
-   stime.hour = floor(session_start_hour);
-   stime.min = (session_start_hour-stime.hour)*60;
+   stime.hour = (int)floor(session_start_hour);
+   stime.min = (int)(session_start_hour-stime.hour)*60;
    stime.sec = 0;
-   etime.hour = floor(session_end_hour);
-   etime.min = (session_end_hour-etime.hour)*60;
+   etime.hour = (int)floor(session_end_hour);
+   etime.min = (int)(session_end_hour-etime.hour)*60;
    etime.sec = 0;
    datetime_start = StructToTime(stime);
    datetime_end = StructToTime(etime);
