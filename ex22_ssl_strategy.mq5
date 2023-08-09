@@ -23,14 +23,20 @@ input double session_end_hour = 13.0;    // session end hour (server time)
 
 input group "Indicator settings"
 input int ssl_period = 14; // SSL period
-input int rsi_period = 0; // RSI period (set 0 to disable)
+input int min_ssl_breaking_points = 0;  // minimum points to consider SSL is broken
+input int rsi_period = 0; // RSI period for confirmation (set 0 to disable)
+input int ema_period = 0; // EMA period for confirmation (set 0 to disable)
+input int adx_period = 0; // ADX period for confirmation (set 0 to disable)
+input double adx_threshold = 25;
 
 input group "Position settings"
+input bool multiple_entries = false;  // multiple entries in SSL     TOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 input int stop_limit_offset_points = 0;  // stop limit offset points (set 0 for instant entry)
 input double risk_original = 100;  // risk usd per trade
-input double Rr = 0.0; // reward/risk ratio (set 0 to remove tp)
+input double Rr = 0.0; // reward/risk ratio (set 0 to disable tp)
 input int sl_offset_points = 0;  // sl offset points from ssl
-input int tsl_offset_points = 0;  //TSL offset points from ssl (set 0 to disable TSL)
+input int tsl_offset_points = 0;  //TSL offset points from ssl (set 0 to disable)
+input int riskfree_points = 0;  // RiskFree points (set 0 to disable)                          TOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
 
 input group "Run for prop challenge"
@@ -52,7 +58,7 @@ input string country_name = "US";
 input string important_news = "CPI;Interest;Nonfarm;Unemployment;GDP;NFP;PMI";
 
 CTrade trade;
-int ssl_handle, rsi_handle;
+int ssl_handle, rsi_handle, ema_handle, adx_handle;
 ENUM_TIMEFRAMES tf;
 double risk;
 PropChallengeCriteria prop_challenge_criteria;
@@ -69,12 +75,11 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_custom_timeframe) tf = convert_tf(custom_timeframe);
    else tf = _Period;
-   ssl_handle = iCustom(_Symbol, tf, "ssl.ex5", ssl_period, true, 0);
+   ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\ssl.ex5", ssl_period, true, 0, min_ssl_breaking_points, multiple_entries);
    ChartIndicatorAdd(0, 0, ssl_handle);
-   if(rsi_period>0){
-      rsi_handle = iRSI(_Symbol, tf, rsi_period, PRICE_CLOSE);
-      ChartIndicatorAdd(0, 1, rsi_handle);
-   }
+   if(rsi_period>0) rsi_handle = iRSI(_Symbol, tf, rsi_period, PRICE_CLOSE);
+   if(ema_period>0) ema_handle = iMA(_Symbol, tf, ema_period, 0, MODE_EMA, PRICE_CLOSE);
+   if(adx_period>0) adx_handle = iADXWilder(_Symbol, tf, adx_period);
    risk = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, MONTH_ALL, Magic);
    return(INIT_SUCCEEDED);
@@ -85,6 +90,8 @@ void OnDeinit(const int reason)
 {
    IndicatorRelease(ssl_handle);
    IndicatorRelease(rsi_handle);
+   IndicatorRelease(ema_handle);
+   IndicatorRelease(adx_handle);
 }
 
 void OnTick()
@@ -135,9 +142,7 @@ void OnTick()
          }
       }
    } 
-   
-   
-   
+     
    if(tsl_offset_points>0){
       int npos = ArraySize(pos_tickets);
       for(int ipos=0;ipos<npos;ipos++){
@@ -177,12 +182,14 @@ void OnTick()
    }
    
    ArrayResize(pos_tickets, 0);
+   ArrayResize(ord_tickets, 0);
    GetMyPositionsTickets(Magic, pos_tickets);
-   if(ArraySize(pos_tickets)>0) return;
+   GetMyOrdersTickets(Magic, ord_tickets);
+   if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0) return;
    
    if(!is_session_time_allowed_double(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
 
-   if(ssl_buy && rsi_confirmed(true)){  // enter buy
+   if(ssl_buy && rsi_confirmed(true) && ema_confirmed(true) && adx_confirmed(true)){  // enter buy
       double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       if(stop_limit_offset_points>0) p = MathMax(iHigh(_Symbol, tf, 1), p) + stop_limit_offset_points*_Point;
       double ssl = get_ssl_upper(1);
@@ -196,7 +203,7 @@ void OnTick()
       tp = NormalizeDouble(tp, _Digits);
       if(stop_limit_offset_points>0) trade.BuyStop(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);
       else trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
-   }else if(ssl_sell && rsi_confirmed(false)){  // enter sell
+   }else if(ssl_sell && rsi_confirmed(false) && ema_confirmed(false) && adx_confirmed(false)){  // enter sell
       double p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       if(stop_limit_offset_points>0) p = MathMin(iLow(_Symbol, tf, 1), p) - stop_limit_offset_points*_Point;
       double ssl = get_ssl_lower(1);
@@ -241,11 +248,35 @@ double get_ssl_sell(int shift=0){
 
 bool rsi_confirmed(bool buy_or_sell){
    if(rsi_period<=0) return true;
-   double rsival[];
-   ArraySetAsSeries(rsival, true);
-   CopyBuffer(rsi_handle, 0, 1, 1, rsival);
-   if(buy_or_sell && rsival[0]>=50) return true;
-   if(!buy_or_sell && rsival[0]<=50) return true;
+   double val[];
+   ArraySetAsSeries(val, true);
+   CopyBuffer(rsi_handle, 0, 1, 1, val);
+   if(buy_or_sell && val[0]>50) return true;
+   if(!buy_or_sell && val[0]<50) return true;
+   return false;   
+}
+
+bool ema_confirmed(bool buy_or_sell){
+   if(ema_period<=0) return true;
+   double val[];
+   ArraySetAsSeries(val, true);
+   CopyBuffer(ema_handle, 0, 1, 1, val);
+   if(buy_or_sell && iClose(_Symbol, tf, 1)>val[0]) return true;
+   if(!buy_or_sell && iClose(_Symbol, tf, 1)<val[0]) return true;
+   return false;   
+}
+
+bool adx_confirmed(bool buy_or_sell){
+   if(adx_period<=0) return true;
+   double val[], plus_line[], minus_line[];
+   ArraySetAsSeries(val, true);
+   ArraySetAsSeries(plus_line, true);
+   ArraySetAsSeries(minus_line, true);
+   CopyBuffer(adx_handle, 0, 1, 1, val);
+   CopyBuffer(adx_handle, 1, 1, 1, plus_line);
+   CopyBuffer(adx_handle, 2, 1, 1, minus_line);
+   if(buy_or_sell && val[0]>=adx_threshold && plus_line[0]>minus_line[0]) return true;
+   if(!buy_or_sell && val[0]>=adx_threshold && plus_line[0]<minus_line[0]) return true;
    return false;   
 }
 
