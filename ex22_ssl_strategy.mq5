@@ -30,7 +30,7 @@ input int adx_period = 0; // ADX period for confirmation (set 0 to disable)
 input double adx_threshold = 25;
 
 input group "Position settings"
-input bool multiple_entries = false;  // multiple entries in SSL     TOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+input bool multiple_entries = false;  // multiple entries in SSL
 input int stop_limit_offset_points = 0;  // stop limit offset points (set 0 for instant entry)
 input double risk_original = 100;  // risk usd per trade
 input double Rr = 0.0; // reward/risk ratio (set 0 to disable tp)
@@ -112,6 +112,7 @@ void OnTick()
       period_prof = prop_challenge_criteria.get_current_period_profit();
       period_drawdown = prop_challenge_criteria.get_current_period_drawdown();
       today_profit = prop_challenge_criteria.get_today_profit();
+      risk = MathMax(MathMin(risk_original, prop_challenge_daily_loss_limit+today_profit), 0);
       if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) Comment("EA: ", Magic, "\nToday profit: ", int(today_profit),"\nPeriod Profit: ", int(period_prof), " / " , int(prop_challenge_min_profit_usd), "\nPeriod Drawdown: ", int(period_drawdown), " / " , int(prop_challenge_max_drawdown_usd), "\nRisk: ", int(risk), " / " , int(prop_challenge_daily_loss_limit));
       //if(period_prof>=prop_challenge_min_profit_usd*1.01 && risk>new_risk_if_prop_passed){
       //   DeleteAllOrders(trade);
@@ -176,42 +177,44 @@ void OnTick()
             TrailingStoploss(trade, pos_tickets[ipos], (get_ssl_lower()-curr_price)/_Point + tsl_offset_points);
          }   
       }
-   }
+   }   
    
    if(!IsNewCandle(tf, 1)) return;
    
-   bool ssl_buy = get_ssl_buy(1)==EMPTY_VALUE?false:true;
-   bool ssl_sell = get_ssl_sell(1)==EMPTY_VALUE?false:true;
+   bool ssl_buy = get_ssl_buy(1);
+   bool ssl_sell = get_ssl_sell(1);
+   double ssl_upper = get_ssl_upper(1);
+   double ssl_lower = get_ssl_lower(1);
    
    if(ssl_buy || ssl_sell){
       DeleteAllOrders(trade);
-      run_early_exit_policy();
+      if(multiple_entries){
+         if(ssl_upper==EMPTY_VALUE && ssl_lower!=EMPTY_VALUE) run_early_exit_policy(1); // close only buy positions
+         if(ssl_upper!=EMPTY_VALUE && ssl_lower==EMPTY_VALUE) run_early_exit_policy(2); // close only sell positions
+      }else{
+         run_early_exit_policy(0);
+      }
    }
    
-   if(prop_challenge_criteria_enabled){
-      //if(prop_challenge_criteria.is_current_period_passed()){
-      //   risk = new_risk_if_prop_passed;
-      //}else{
-      //   double risk_to_reach_drawdown = period_prof + prop_challenge_max_drawdown_usd;
-      //   risk = MathMin(risk_original, risk_to_reach_drawdown);
-      //}
-      risk = MathMax(MathMin(risk_original, prop_challenge_daily_loss_limit+today_profit), 0);
-      //if(!prop_challenge_criteria.is_current_period_drawdown_passed()) return;
-   }
+
    
    ArrayResize(pos_tickets, 0);
    ArrayResize(ord_tickets, 0);
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
-   if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0) return;
+   if(multiple_entries){
+      if(!AllPositionsRiskfreed()) return;
+   }else{
+      if(ArraySize(pos_tickets)>0) return;
+   }
+   if(ArraySize(ord_tickets)>0) return;
    
    if(!is_session_time_allowed_double(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
 
    if(ssl_buy && rsi_confirmed(true) && ema_confirmed(true) && adx_confirmed(true)){  // enter buy
       double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       if(stop_limit_offset_points>0) p = MathMax(iHigh(_Symbol, tf, 1), p) + stop_limit_offset_points*_Point;
-      double ssl = get_ssl_upper(1);
-      double sl = MathMin(ssl, iLow(_Symbol, tf, 1)) - sl_offset_points*_Point;
+      double sl = MathMin(ssl_upper, iLow(_Symbol, tf, 1)) - sl_offset_points*_Point;
       if(p<sl) return;
       double lot_size = normalize_volume(calculate_lot_size((p-sl)/_Point, risk));
       p = NormalizeDouble(p, _Digits);
@@ -224,8 +227,7 @@ void OnTick()
    }else if(ssl_sell && rsi_confirmed(false) && ema_confirmed(false) && adx_confirmed(false)){  // enter sell
       double p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       if(stop_limit_offset_points>0) p = MathMin(iLow(_Symbol, tf, 1), p) - stop_limit_offset_points*_Point;
-      double ssl = get_ssl_lower(1);
-      double sl = MathMax(ssl, iHigh(_Symbol, tf, 1)) + sl_offset_points*_Point;
+      double sl = MathMax(ssl_lower, iHigh(_Symbol, tf, 1)) + sl_offset_points*_Point;
       if(p>sl) return;
       double lot_size = normalize_volume(calculate_lot_size((sl-p)/_Point, risk));
       p = NormalizeDouble(p, _Digits);
@@ -252,16 +254,16 @@ double get_ssl_lower(int shift=0){
    return val[0];
 }
 
-double get_ssl_buy(int shift=0){
+bool get_ssl_buy(int shift=0){
    double val[1];
    CopyBuffer(ssl_handle, SSL_BUY_BUFFER, shift, 1, val);
-   return val[0];
+   return val[0]==EMPTY_VALUE?false:true;
 }
 
-double get_ssl_sell(int shift=0){
+bool get_ssl_sell(int shift=0){
    double val[1];
    CopyBuffer(ssl_handle, SSL_SELL_BUFFER, shift, 1, val);
-   return val[0];
+   return val[0]==EMPTY_VALUE?false:true;
 }
 
 bool rsi_confirmed(bool buy_or_sell){
@@ -299,11 +301,9 @@ bool adx_confirmed(bool buy_or_sell){
 }
 
 
-void run_early_exit_policy(void){
+void run_early_exit_policy(int which_positions_type){ // which_positions_type: 0:all, 1:buys only, 2:sell only
    if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT){
-      CloseAllPositions(trade);
-      return;
-      
+      CloseAllPositions(trade, which_positions_type);      
    }else if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN){
       ulong pos_tickets[];
       GetMyPositionsTickets(Magic, pos_tickets);
@@ -314,26 +314,40 @@ void run_early_exit_policy(void){
          double current_sl = PositionGetDouble(POSITION_SL);
          double current_tp = PositionGetDouble(POSITION_TP);
          double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-         if(pos_type==POSITION_TYPE_BUY && current_sl<open_price && (current_tp>open_price || current_tp==0)){
+         if(pos_type==POSITION_TYPE_BUY && current_sl<open_price && (current_tp>open_price || current_tp==0) && (which_positions_type==0 || which_positions_type==1)){
             double bidprice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
             double profit_points = (bidprice-open_price)/_Point;
             if(profit_points>=0) trade.PositionClose(pos_tickets[ipos]);
             else trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
-         }else if(pos_type==POSITION_TYPE_SELL && current_sl>open_price && (current_tp<open_price || current_tp==0)){
+         }else if(pos_type==POSITION_TYPE_SELL && current_sl>open_price && (current_tp<open_price || current_tp==0) && (which_positions_type==0 || which_positions_type==2)){
             double askprice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
             double profit_points = (open_price-askprice)/_Point;
             if(profit_points>=0) trade.PositionClose(pos_tickets[ipos]);
             else trade.PositionModify(pos_tickets[ipos], current_sl, open_price);              
          }
       }
-      return;
    }
 }
 
+bool AllPositionsRiskfreed(void){  // checks if all current position are risk freed
+   bool result = true;
+   ulong pos_tickets[];
+   GetMyPositionsTickets(Magic, pos_tickets);
+   int npos = ArraySize(pos_tickets);  
+   for(int ipos=0;ipos<npos;ipos++){
+      PositionSelectByTicket(pos_tickets[ipos]);
+      ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+      double current_sl = PositionGetDouble(POSITION_SL);
+      double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
+      if(pos_type==POSITION_TYPE_BUY && current_sl<open_price) result = false;
+      else if(pos_type==POSITION_TYPE_SELL && current_sl>open_price) result = false;
+      if(!result) break;
+   }
+   return result;
+}
+
 double OnTester(void){
-   double wins = 0;  // number of challenges won
-   double failures = 0; // number of challenges failed
-   double all = 0; // number of all challenges taken
+   int results[];  // number of element=number of prop challenges,  -1: failure, 0: neutral(retake), 1:win
    HistorySelect(0, TimeCurrent()+10);
    int ndeals = HistoryDealsTotal();
    double prof = 0;
@@ -341,7 +355,8 @@ double OnTester(void){
    bool new_challenge = true;
    for(int i=1;i<ndeals;i++){
       if(new_challenge){
-         all++;
+         ArrayResize(results, ArraySize(results)+1);
+         results[ArraySize(results)-1] = 0;
          prof = 0;
          start_date = HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
          new_challenge = false;
@@ -350,23 +365,67 @@ double OnTester(void){
       prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
       datetime current_date = HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
       if(prof<=-prop_challenge_max_drawdown_usd){
-         failures++;
+         results[ArraySize(results)-1] = -1;
          new_challenge = true;
       }else if(prof>=prop_challenge_min_profit_usd){
-         wins++;
+         results[ArraySize(results)-1] = 1;
          new_challenge = true;
       }else if((current_date-start_date)/86400>30 && prof>=0){
          new_challenge = true;
       }else if((current_date-start_date)/86400>30 && prof<0){
-         failures++;
+         results[ArraySize(results)-1] = -1;
          new_challenge = true;
       }
    }
-   Print("---------------------------\nProp challenge report");
-   Print("Number of all challenges:\t" + int(all));
-   Print("Number of win challenges:\t" + int(wins) + " (" + int(100*wins/all) + "%)");
-   Print("Number of fail challenges:\t" + int(failures) + " (" + int(100*failures/all) + "%)");
-   Print("Number of neutral challenges:\t" + int(all-wins-failures) + " (" + int(100*(all-wins-failures)/all) + "%)");
+   double all = ArraySize(results);
+   double wins = 0;
+   double retakes = 0;
+   double failures = 0;
+   vector consecutive_wins=vector::Zeros(0);
+   vector consecutive_failures=vector::Zeros(0);
+   vector consecutive_retakes=vector::Zeros(0);
+   bool new_round;
+   for(int i=0;i<all;i++){
+      if(i==0) new_round=true;
+      else new_round=results[i]!=results[i-1];
+      if(results[i]==-1){
+         failures++;
+         int last_index = consecutive_failures.Size()-1;
+         if(new_round){
+            consecutive_failures.Resize(last_index+2);
+            last_index = consecutive_failures.Size()-1;
+            consecutive_failures[last_index] = 0;
+         }
+         consecutive_failures[last_index]++;
+      }
+      else if(results[i]==0){
+         retakes++;
+         int last_index = consecutive_retakes.Size()-1;
+         if(new_round){
+            consecutive_retakes.Resize(last_index+2);
+            last_index = consecutive_retakes.Size()-1;
+            consecutive_retakes[last_index] = 0;
+         }
+         consecutive_retakes[last_index]++;      
+      }
+      else if(results[i]==1){
+         wins++;
+         int last_index = consecutive_wins.Size()-1;
+         if(new_round){
+            consecutive_wins.Resize(last_index+2);
+            last_index = consecutive_wins.Size()-1;
+            consecutive_wins[last_index] = 0;
+         }
+         consecutive_wins[last_index]++;
+      }
+   }
+   Print("-------------Prop challenge report-------------");
+   Print("                         <<<<<<consecutive>>>>>>");
+   PrintFormat("         Count    Rate    Max    Avg    Median");
+   PrintFormat("wins:    %3.0f       %2.0f%%     %2.0f     %2.0f      %2.0f", wins, 100*wins/all, consecutive_wins.Max(), consecutive_wins.Mean(), consecutive_wins.Median());
+   PrintFormat("fails:   %3.0f       %2.0f%%     %2.0f     %2.0f      %2.0f", failures, 100*failures/all, consecutive_failures.Max(), consecutive_failures.Mean(), consecutive_failures.Median());
+   PrintFormat("retakes: %3.0f       %2.0f%%     %2.0f     %2.0f      %2.0f", retakes, 100*retakes/all, consecutive_retakes.Max(), consecutive_retakes.Mean(), consecutive_retakes.Median());
+   PrintFormat("all:     %3.0f", all);
    Print("---------------------------");
    if(all==0) return 0;
    return NormalizeDouble(100*wins/all, 2);

@@ -144,11 +144,20 @@ void DeleteAllOrders(CTrade& trade){
    for(int i=0; i<nords; i++) trade.OrderDelete(order_tickets[i]);
 }
 
-void CloseAllPositions(CTrade& trade){
+void CloseAllPositions(CTrade& trade, int which_positions_type=0){ // which_positions_type: 0:all, 1:buys only, 2:sell only
    ulong position_tickets[];
    GetMyPositionsTickets(trade.RequestMagic(), position_tickets);
    int npos = ArraySize(position_tickets);
-   for(int i=0; i<npos; i++) trade.PositionClose(position_tickets[i]);
+   for(int i=0; i<npos; i++){
+      if(which_positions_type>0){
+         PositionSelectByTicket(position_tickets[i]);
+         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         if(which_positions_type==1 && pos_type==POSITION_TYPE_BUY) trade.PositionClose(position_tickets[i]);
+         else if(which_positions_type==2 && pos_type==POSITION_TYPE_SELL) trade.PositionClose(position_tickets[i]);
+      }else if(which_positions_type==0){
+         trade.PositionClose(position_tickets[i]);
+      }
+   }
 }
 
 void RiskFree(CTrade& trade, ulong pos_ticket){
@@ -432,6 +441,7 @@ double calculate_lot_size(double slpoints, double riskusd){
    double multiplier = 1;
    if(_Symbol=="XAUUSD" || _Symbol=="XAGUSD") multiplier = 10;
    double tick_val = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+   if(tick_val*slpoints==0) return 0;
    double lot = riskusd/(tick_val*multiplier*slpoints);
    return lot;
 }
