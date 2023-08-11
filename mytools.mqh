@@ -137,30 +137,30 @@ void GetMyOrdersTickets(long magic_number, ulong& order_tickets[]){
    }
 }
 
-void DeleteAllOrders(CTrade& trade){
+void DeleteAllOrders(CTrade& trade_){
    ulong order_tickets[];
-   GetMyOrdersTickets(trade.RequestMagic(), order_tickets);
+   GetMyOrdersTickets(trade_.RequestMagic(), order_tickets);
    int nords = ArraySize(order_tickets);
-   for(int i=0; i<nords; i++) trade.OrderDelete(order_tickets[i]);
+   for(int i=0; i<nords; i++) trade_.OrderDelete(order_tickets[i]);
 }
 
-void CloseAllPositions(CTrade& trade, int which_positions_type=0){ // which_positions_type: 0:all, 1:buys only, 2:sell only
+void CloseAllPositions(CTrade& trade_, int which_positions_type=0){ // which_positions_type: 0:all, 1:buys only, 2:sell only
    ulong position_tickets[];
-   GetMyPositionsTickets(trade.RequestMagic(), position_tickets);
+   GetMyPositionsTickets(trade_.RequestMagic(), position_tickets);
    int npos = ArraySize(position_tickets);
    for(int i=0; i<npos; i++){
       if(which_positions_type>0){
          PositionSelectByTicket(position_tickets[i]);
-         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
-         if(which_positions_type==1 && pos_type==POSITION_TYPE_BUY) trade.PositionClose(position_tickets[i]);
-         else if(which_positions_type==2 && pos_type==POSITION_TYPE_SELL) trade.PositionClose(position_tickets[i]);
+         ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+         if(which_positions_type==1 && pos_type==POSITION_TYPE_BUY) trade_.PositionClose(position_tickets[i]);
+         else if(which_positions_type==2 && pos_type==POSITION_TYPE_SELL) trade_.PositionClose(position_tickets[i]);
       }else if(which_positions_type==0){
-         trade.PositionClose(position_tickets[i]);
+         trade_.PositionClose(position_tickets[i]);
       }
    }
 }
 
-void RiskFree(CTrade& trade, ulong pos_ticket){
+void RiskFree(CTrade& trade_, ulong pos_ticket){
    PositionSelectByTicket(pos_ticket);
    ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
    string current_sym = PositionGetString(POSITION_SYMBOL);
@@ -172,10 +172,10 @@ void RiskFree(CTrade& trade, ulong pos_ticket){
    bool new_sl = false;
    if(pos_type == POSITION_TYPE_BUY && bid_price - open_price >= open_price-current_sl && current_sl<open_price) new_sl = true;
    else if(pos_type == POSITION_TYPE_SELL && open_price - ask_price >= current_sl-open_price && current_sl>open_price) new_sl=true;
-   if(new_sl) trade.PositionModify(pos_ticket, open_price, current_tp);
+   if(new_sl) trade_.PositionModify(pos_ticket, open_price, current_tp);
 }
 
-void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double trigger_points=0){
+void TrailingStoploss(CTrade& trade_, ulong pos_ticket, double slpoints, double trigger_points=0){
    PositionSelectByTicket(pos_ticket);
    ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
    string current_sym = PositionGetString(POSITION_SYMBOL);
@@ -197,7 +197,7 @@ void TrailingStoploss(CTrade& trade, ulong pos_ticket, double slpoints, double t
       if(new_sl > open_price) return;
    }
    new_sl = NormalizeDouble(new_sl, _Digits);
-   trade.PositionModify(pos_ticket, new_sl, current_tp);
+   trade_.PositionModify(pos_ticket, new_sl, current_tp);
 }
 
 void DetectPeaks(PeakProperties& peaks[], ENUM_TIMEFRAMES timeframe,int start, int count, int ncandles_peak, bool weighted_peaks=true){
@@ -413,24 +413,24 @@ bool is_session_time_allowed(string session_start_time, string session_end_time)
    return _currentservertime>=_start && _currentservertime<=_finish;
 }
 
-bool is_session_time_allowed_int(int session_start_hour, int session_end_hour){
+bool is_session_time_allowed_int(int _session_start_hour, int _session_end_hour){
    datetime currentservertime = TimeCurrent();
    MqlDateTime timestruct;
    TimeToStruct(currentservertime, timestruct);
-   return timestruct.hour>=session_start_hour && timestruct.hour<=session_end_hour;
+   return timestruct.hour>=_session_start_hour && timestruct.hour<=_session_end_hour;
 }
 
-bool is_session_time_allowed_double(double session_start_hour, double session_end_hour){
+bool is_session_time_allowed_double(double _session_start_hour, double _session_end_hour){
    MqlDateTime stime, etime;
    datetime datetime_start, datetime_end;
    datetime currentservertime = TimeCurrent();
    TimeToStruct(currentservertime, stime);
    TimeToStruct(currentservertime, etime);
-   stime.hour = (int)floor(session_start_hour);
-   stime.min = (int)(session_start_hour-stime.hour)*60;
+   stime.hour = (int)floor(_session_start_hour);
+   stime.min = (int)(_session_start_hour-stime.hour)*60;
    stime.sec = 0;
-   etime.hour = (int)floor(session_end_hour);
-   etime.min = (int)(session_end_hour-etime.hour)*60;
+   etime.hour = (int)floor(_session_end_hour);
+   etime.min = (int)(_session_end_hour-etime.hour)*60;
    etime.sec = 0;
    datetime_start = StructToTime(stime);
    datetime_end = StructToTime(etime);
