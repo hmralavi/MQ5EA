@@ -137,7 +137,7 @@ void CNews::CNews(datetime date_from_, datetime date_to_, string country_name_="
    u_sep = StringGetCharacter(sep, 0);
    nfilt = StringSplit(filter_title, u_sep, filt);
 
-   if(MQLInfoInteger(MQL_TESTER)) read_file();
+   if(MQLInfoInteger(MQL_DEBUG) || MQLInfoInteger(MQL_FORWARD) || MQLInfoInteger(MQL_OPTIMIZATION) || MQLInfoInteger(MQL_VISUAL_MODE) || MQLInfoInteger(MQL_TESTER)) read_file();
    else read_live();
 }
 

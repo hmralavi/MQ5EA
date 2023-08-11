@@ -18,8 +18,9 @@ input group "Time settings"
 input bool use_custom_timeframe = false;
 input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_M5;
 input bool trade_only_in_session_time = false;  // entries only in specific session time of the day
-input double session_start_hour = 5.0;      // session start hour (server time)
-input double session_end_hour = 13.0;    // session end hour (server time)    
+input double session_start_hour = 5.0;          // session start hour (server time)
+input double session_end_hour = 13.0;           // session end hour (server time)
+input double terminate_hour = 0.0;              // terminate all positions/orders hour (set 0 to disable)
 
 input group "Indicator settings"
 input int ssl_period = 14; // SSL period
@@ -113,11 +114,19 @@ void OnTick()
       period_drawdown = prop_challenge_criteria.get_current_period_drawdown();
       today_profit = prop_challenge_criteria.get_today_profit();
       risk = MathMax(MathMin(risk_original, prop_challenge_daily_loss_limit+today_profit), 0);
-      if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) Comment("EA: ", Magic, "\nToday profit: ", int(today_profit),"\nPeriod Profit: ", int(period_prof), " / " , int(prop_challenge_min_profit_usd), "\nPeriod Drawdown: ", int(period_drawdown), " / " , int(prop_challenge_max_drawdown_usd), "\nRisk: ", int(risk), " / " , int(prop_challenge_daily_loss_limit));
+      if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE) || !MQLInfoInteger(MQL_OPTIMIZATION)) Comment("EA: ", Magic, "\nToday profit: ", int(today_profit),"\nPeriod Profit: ", int(period_prof), " / " , int(prop_challenge_min_profit_usd), "\nPeriod Drawdown: ", int(period_drawdown), " / " , int(prop_challenge_max_drawdown_usd), "\nRisk: ", int(risk), " / " , int(prop_challenge_daily_loss_limit));
       //if(period_prof>=prop_challenge_min_profit_usd*1.01 && risk>new_risk_if_prop_passed){
       //   DeleteAllOrders(trade);
       //   CloseAllPositions(trade);
       //}
+   }
+   
+   if(terminate_hour>0){
+      if(!is_session_time_allowed_double(session_start_hour, terminate_hour)){
+         DeleteAllOrders(trade);
+         CloseAllPositions(trade);
+         return;
+      }
    }
    
    ulong pos_tickets[], ord_tickets[];
@@ -130,7 +139,7 @@ void OnTick()
       if(nnews>0){
          for(int inews=0;inews<nnews;inews++){
             datetime newstime = today_news.news[inews].time;
-            int nminutes = (TimeCurrent()-newstime)/60;
+            int nminutes = (int)(TimeCurrent()-newstime)/60;
             if((nminutes<0 && -nminutes<=stop_minutes_before_news && stop_minutes_before_news>0) || (nminutes>0 && nminutes<=stop_minutes_after_news && stop_minutes_after_news>0)){
                if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0){
                   PrintFormat("%d minutes %s news `%s` with importance %d. closing the positions...", 
@@ -148,7 +157,7 @@ void OnTick()
       int npos = ArraySize(pos_tickets);
       for(int ipos=0;ipos<npos;ipos++){
          PositionSelectByTicket(pos_tickets[ipos]);
-         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
          double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
          double curr_sl = PositionGetDouble(POSITION_SL);
          double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
@@ -166,7 +175,7 @@ void OnTick()
       int npos = ArraySize(pos_tickets);
       for(int ipos=0;ipos<npos;ipos++){
          PositionSelectByTicket(pos_tickets[ipos]);
-         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
          double open_price = PositionGetDouble(POSITION_PRICE_OPEN);      
          double curr_sl = PositionGetDouble(POSITION_SL);
          double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
@@ -310,7 +319,7 @@ void run_early_exit_policy(int which_positions_type){ // which_positions_type: 0
       int npos = ArraySize(pos_tickets);  
       for(int ipos=0;ipos<npos;ipos++){
          PositionSelectByTicket(pos_tickets[ipos]);
-         ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+         ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
          double current_sl = PositionGetDouble(POSITION_SL);
          double current_tp = PositionGetDouble(POSITION_TP);
          double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
@@ -336,7 +345,7 @@ bool AllPositionsRiskfreed(void){  // checks if all current position are risk fr
    int npos = ArraySize(pos_tickets);  
    for(int ipos=0;ipos<npos;ipos++){
       PositionSelectByTicket(pos_tickets[ipos]);
-      ENUM_POSITION_TYPE pos_type = PositionGetInteger(POSITION_TYPE);
+      ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
       double current_sl = PositionGetDouble(POSITION_SL);
       double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
       if(pos_type==POSITION_TYPE_BUY && current_sl<open_price) result = false;
@@ -351,19 +360,19 @@ double OnTester(void){
    HistorySelect(0, TimeCurrent()+10);
    int ndeals = HistoryDealsTotal();
    double prof = 0;
-   datetime start_date;
+   datetime start_date=0;
    bool new_challenge = true;
    for(int i=1;i<ndeals;i++){
       if(new_challenge){
          ArrayResize(results, ArraySize(results)+1);
          results[ArraySize(results)-1] = 0;
          prof = 0;
-         start_date = HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
+         start_date = (datetime)HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
          new_challenge = false;
       }
       ulong dealticket = HistoryDealGetTicket(i);
       prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
-      datetime current_date = HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
+      datetime current_date = (datetime)HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
       if(prof<=-prop_challenge_max_drawdown_usd){
          results[ArraySize(results)-1] = -1;
          new_challenge = true;
@@ -390,30 +399,30 @@ double OnTester(void){
       else new_round=results[i]!=results[i-1];
       if(results[i]==-1){
          failures++;
-         int last_index = consecutive_failures.Size()-1;
+         int last_index = (int)consecutive_failures.Size()-1;
          if(new_round){
             consecutive_failures.Resize(last_index+2);
-            last_index = consecutive_failures.Size()-1;
+            last_index = (int)consecutive_failures.Size()-1;
             consecutive_failures[last_index] = 0;
          }
          consecutive_failures[last_index]++;
       }
       else if(results[i]==0){
          retakes++;
-         int last_index = consecutive_retakes.Size()-1;
+         int last_index = (int)consecutive_retakes.Size()-1;
          if(new_round){
             consecutive_retakes.Resize(last_index+2);
-            last_index = consecutive_retakes.Size()-1;
+            last_index = (int)consecutive_retakes.Size()-1;
             consecutive_retakes[last_index] = 0;
          }
          consecutive_retakes[last_index]++;      
       }
       else if(results[i]==1){
          wins++;
-         int last_index = consecutive_wins.Size()-1;
+         int last_index = (int)consecutive_wins.Size()-1;
          if(new_round){
             consecutive_wins.Resize(last_index+2);
-            last_index = consecutive_wins.Size()-1;
+            last_index = (int)consecutive_wins.Size()-1;
             consecutive_wins[last_index] = 0;
          }
          consecutive_wins[last_index]++;
@@ -431,7 +440,7 @@ double OnTester(void){
    return NormalizeDouble(100*wins/all, 2);
 }
 
-void update_news(){
+void update_news(void){
    static int last_day;
    MqlDateTime today;
    TimeToStruct(TimeCurrent(), today);
