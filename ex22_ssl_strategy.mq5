@@ -356,7 +356,7 @@ bool AllPositionsRiskfreed(void){  // checks if all current position are risk fr
 }
 
 double OnTester(void){
-   return print_prop_challenge_report();
+   return print_prop_challenge_report(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_daily_loss_limit*1.1);
 }
 
 void update_news(void){

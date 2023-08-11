@@ -205,34 +205,44 @@ double PropChallengeCriteria::get_today_profit(void){
    return pdata.profit;
 }
 
-double print_prop_challenge_report(void){
+double print_prop_challenge_report(double min_profit_usd, double max_drawdown_usd, double daily_loss_limit_usd){
    int results[];  // number of element=number of prop challenges,  -1: failure, 0: neutral(retake), 1:win
    HistorySelect(0, TimeCurrent()+10);
    int ndeals = HistoryDealsTotal();
    double prof = 0;
-   datetime start_date=0;
+   double prof_daily = 0;
+   datetime start_date = 0;
+   MqlDateTime today;
    bool new_challenge = true;
    for(int i=1;i<ndeals;i++){
       if(new_challenge){
          ArrayResize(results, ArraySize(results)+1);
          results[ArraySize(results)-1] = 0;
          prof = 0;
+         prof_daily = 0;
          start_date = (datetime)HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
+         TimeToStruct(start_date, today);
          new_challenge = false;
       }
       ulong dealticket = HistoryDealGetTicket(i);
-      prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
+      double p = HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
       datetime current_date = (datetime)HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
-      if(prof<=-prop_challenge_max_drawdown_usd){
+      MqlDateTime _today;
+      TimeToStruct(current_date, _today);
+      if(today.day != _today.day){
+         today = _today;
+         prof_daily = 0;
+      }
+      prof += p;
+      prof_daily += p;
+      if(prof<=-max_drawdown_usd || prof_daily<=-daily_loss_limit_usd){
          results[ArraySize(results)-1] = -1;
          new_challenge = true;
-      }else if(prof>=prop_challenge_min_profit_usd){
+      }else if(prof>=min_profit_usd){
          results[ArraySize(results)-1] = 1;
          new_challenge = true;
-      }else if((current_date-start_date)/86400>30 && prof>=0){
-         new_challenge = true;
-      }else if((current_date-start_date)/86400>30 && prof<0){
-         results[ArraySize(results)-1] = -1;
+      }else if((current_date-start_date)/86400>30){
+         if(prof<0) results[ArraySize(results)-1] = -1;
          new_challenge = true;
       }
    }
