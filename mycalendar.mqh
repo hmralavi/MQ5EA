@@ -1,4 +1,4 @@
-#define FILE_NAME "news/mynewshistory.bin"
+#define FILE_NAME "news/mynewshistory.bin" 
 
 struct MyNewsStruct{ 
    ulong                               value_id;              // value ID 
