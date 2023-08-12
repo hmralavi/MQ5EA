@@ -210,7 +210,9 @@ double print_prop_challenge_report(double min_profit_usd, double max_drawdown_us
    HistorySelect(0, TimeCurrent()+10);
    int ndeals = HistoryDealsTotal();
    double prof = 0;
-   double prof_daily = 0;
+   double prof_max = 0;
+   double prof_min = 0;
+   vector<double> prof_daily=vector::Zeros(0);
    datetime start_date = 0;
    MqlDateTime today;
    bool new_challenge = true;
@@ -219,7 +221,8 @@ double print_prop_challenge_report(double min_profit_usd, double max_drawdown_us
          ArrayResize(results, ArraySize(results)+1);
          results[ArraySize(results)-1] = 0;
          prof = 0;
-         prof_daily = 0;
+         prof_daily.Resize(prof_daily.Size()+1);
+         prof_daily[prof_daily.Size()-1] = 0;
          start_date = (datetime)HistoryDealGetInteger(HistoryDealGetTicket(i), DEAL_TIME);
          TimeToStruct(start_date, today);
          new_challenge = false;
@@ -231,11 +234,14 @@ double print_prop_challenge_report(double min_profit_usd, double max_drawdown_us
       TimeToStruct(current_date, _today);
       if(today.day != _today.day){
          today = _today;
-         prof_daily = 0;
+         prof_daily.Resize(prof_daily.Size()+1);
+         prof_daily[prof_daily.Size()-1] = 0;
       }
       prof += p;
-      prof_daily += p;
-      if(prof<=-max_drawdown_usd || prof_daily<=-daily_loss_limit_usd){
+      prof_daily[prof_daily.Size()-1] += p;
+      if(prof>prof_max) prof_max = prof;
+      if(prof<prof_min) prof_min = prof;  
+      if(prof<=-max_drawdown_usd || prof_daily[prof_daily.Size()-1]<=-daily_loss_limit_usd){
          results[ArraySize(results)-1] = -1;
          new_challenge = true;
       }else if(prof>=min_profit_usd){
@@ -250,9 +256,9 @@ double print_prop_challenge_report(double min_profit_usd, double max_drawdown_us
    double wins = 0;
    double retakes = 0;
    double failures = 0;
-   vector consecutive_wins=vector::Zeros(0);
-   vector consecutive_failures=vector::Zeros(0);
-   vector consecutive_retakes=vector::Zeros(0);
+   vector<double> consecutive_wins=vector::Zeros(0);
+   vector<double> consecutive_failures=vector::Zeros(0);
+   vector<double> consecutive_retakes=vector::Zeros(0);
    bool new_round;
    for(int i=0;i<all;i++){
       if(i==0) new_round=true;
@@ -289,12 +295,20 @@ double print_prop_challenge_report(double min_profit_usd, double max_drawdown_us
       }
    }
    Print("-------------Prop challenge report-------------");
+   PrintFormat("Min profit (daily): %.0f $", prof_daily.Min());
+   PrintFormat("Max profit (daily): %.0f $", prof_daily.Max());
+   PrintFormat("Avg profit (daily): %.0f $", prof_daily.Mean());
+   PrintFormat("Min prop profit:    %.0f $", prof_min);
+   PrintFormat("Max prop profit:    %.0f $", prof_max);
+   Print("----------------");
    Print("                         <<<<<<consecutive>>>>>>");
    PrintFormat("         Count    Rate    Max    Avg    Median");
    PrintFormat("wins:    %3.0f       %2.0f%%     %2.0f     %2.0f      %2.0f", wins, 100*wins/all, consecutive_wins.Max(), consecutive_wins.Mean(), consecutive_wins.Median());
    PrintFormat("fails:   %3.0f       %2.0f%%     %2.0f     %2.0f      %2.0f", failures, 100*failures/all, consecutive_failures.Max(), consecutive_failures.Mean(), consecutive_failures.Median());
    PrintFormat("retakes: %3.0f       %2.0f%%     %2.0f     %2.0f      %2.0f", retakes, 100*retakes/all, consecutive_retakes.Max(), consecutive_retakes.Mean(), consecutive_retakes.Median());
    PrintFormat("all:     %3.0f", all);
+
+
    Print("---------------------------");
    if(all==0) return 0;
    return NormalizeDouble(100*wins/all, 2);
