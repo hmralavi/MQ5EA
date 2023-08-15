@@ -42,9 +42,10 @@ input int harsi_length=14; // RSI length for HA candles calculation
 input int harsi_smoothing_length = 7;
 input ENUM_APPLIED_PRICE rsi_source = PRICE_MEDIAN;
 input int rsi_length=7; // RSI length for RSI plot
-input int ncandles_rsi_peak = 2;
+input int ncandles_rsi_peak = 1;
 input int max_backward_candles_for_divergence = 40;
 input int max_backward_peaks_for_divergence = 3;
+input double equal_peaks_margin_points = 0;
 input bool rsi_smoothing=true;
 input bool enable_alert = false;
 //--- indicator buffers
@@ -82,14 +83,14 @@ void OnInit()
    rsi_c_handle = iRSI(_Symbol, _Period, harsi_length, PRICE_CLOSE);
    
 
-   PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, 0);
+   PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    PlotIndexSetInteger(2, PLOT_ARROW, 225);
 
-   PlotIndexSetDouble(3, PLOT_EMPTY_VALUE, 0);
+   PlotIndexSetDouble(3, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    PlotIndexSetInteger(3, PLOT_ARROW, 226);
    
-   PlotIndexSetDouble(4, PLOT_EMPTY_VALUE, 0);
-   PlotIndexSetDouble(5, PLOT_EMPTY_VALUE, 0);
+   PlotIndexSetDouble(4, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+   PlotIndexSetDouble(5, PLOT_EMPTY_VALUE, EMPTY_VALUE);
   }
 
 void OnDeinit(const int reason){
@@ -120,8 +121,8 @@ int OnCalculate(const int rates_total,
       HAO[0] = -50;
       HAC[0] = -50;
       RSI[0] = 0;
-      BullishDivergence[0] = 0;
-      BearishDivergence[0] = 0;
+      BullishDivergence[0] = EMPTY_VALUE;
+      BearishDivergence[0] = EMPTY_VALUE;
       RSIPeak[0] = 0;
       start = 1;
    }else{
@@ -166,10 +167,10 @@ int OnCalculate(const int rates_total,
       if(rsi_smoothing) rsival[0] = (rsival[0]+RSI[i-1])/2;
       RSI[i] = NormalizeDouble(rsival[0], 1);
       
-      BullishDivergence[i] = 0;
-      BearishDivergence[i] = 0;
-      BullishDivergenceLine[i] = 0;
-      BearishDivergenceLine[i] = 0;
+      BullishDivergence[i] = EMPTY_VALUE;
+      BearishDivergence[i] = EMPTY_VALUE;
+      BullishDivergenceLine[i] = EMPTY_VALUE;
+      BearishDivergenceLine[i] = EMPTY_VALUE;
       RSIPeak[i] = 0;
       int jpeak = i-1-ncandles_rsi_peak;
       bool istop = true;
@@ -188,13 +189,13 @@ int OnCalculate(const int rates_total,
          for(int j=jpeak-1;j>=jpeak-max_backward_candles_for_divergence;j--){
             if(npeaks_found>=max_backward_peaks_for_divergence) break;
             if(RSIPeak[j]==1 && RSIPeak[jpeak]==1){ // check regular bearish divergence
-               if(RSI[j]>=RSI[jpeak] && high[j]<=high[jpeak]){
+               if((RSI[j]>=RSI[jpeak]-equal_peaks_margin_points*0.1) && (high[j]<=high[jpeak]+equal_peaks_margin_points*_Point)){
                   BearishDivergence[i-1] = RSI[jpeak];
                   for(int k=j;k<=jpeak;k++) BearishDivergenceLine[k] = RSI[j] + (k-j)*(RSI[jpeak]-RSI[j])/(jpeak-j);                  
                }
                npeaks_found++;               
             }else if(RSIPeak[j]==2 && RSIPeak[jpeak]==2){ // check regular bullish divergence
-               if(RSI[j]<=RSI[jpeak] && low[j]>=low[jpeak]){
+               if((RSI[j]<=RSI[jpeak]+equal_peaks_margin_points*0.1) && (low[j]>=low[jpeak]-equal_peaks_margin_points*_Point)){
                   BullishDivergence[i-1] = RSI[jpeak];
                   for(int k=j;k<=jpeak;k++) BullishDivergenceLine[k] = RSI[j] + (k-j)*(RSI[jpeak]-RSI[j])/(jpeak-j);
                }
