@@ -19,12 +19,12 @@
 
 #property indicator_type3   DRAW_ARROW
 #property indicator_color3  clrLime
-#property indicator_width3  4
+#property indicator_width3  1
 #property indicator_label3  "Bullish Divergence"
 
 #property indicator_type4   DRAW_ARROW
 #property indicator_color4  clrRed
-#property indicator_width4  4
+#property indicator_width4  1
 #property indicator_label4  "Bearish Divergence"
 
 #property indicator_type5     DRAW_LINE
@@ -43,6 +43,8 @@ input int harsi_smoothing_length = 7;
 input ENUM_APPLIED_PRICE rsi_source = PRICE_MEDIAN;
 input int rsi_length=7; // RSI length for RSI plot
 input int ncandles_rsi_peak = 2;
+input int max_backward_candles_for_divergence = 40;
+input int max_backward_peaks_for_divergence = 3;
 input bool rsi_smoothing=true;
 input bool enable_alert = false;
 //--- indicator buffers
@@ -52,8 +54,6 @@ double BullishDivergence[], BearishDivergence[];
 double BullishDivergenceLine[], BearishDivergenceLine[];
 double RSIPeak[]; // 0 none, 1 top, 2 bottom
 int rsi_line_handle, rsi_o_handle, rsi_h_handle, rsi_l_handle, rsi_c_handle;
-
-#define MAX_BACKWARD_CANDLES_FOR_DIVERGENCE 40
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
@@ -83,10 +83,10 @@ void OnInit()
    
 
    PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, 0);
-   PlotIndexSetInteger(2, PLOT_ARROW, 159);
+   PlotIndexSetInteger(2, PLOT_ARROW, 225);
 
    PlotIndexSetDouble(3, PLOT_EMPTY_VALUE, 0);
-   PlotIndexSetInteger(3, PLOT_ARROW, 159);
+   PlotIndexSetInteger(3, PLOT_ARROW, 226);
    
    PlotIndexSetDouble(4, PLOT_EMPTY_VALUE, 0);
    PlotIndexSetDouble(5, PLOT_EMPTY_VALUE, 0);
@@ -183,20 +183,22 @@ int OnCalculate(const int rates_total,
       if(isbottom) RSIPeak[jpeak] = 2;
       if(istop && isbottom) RSIPeak[jpeak] = 0;
       
-      if(RSIPeak[jpeak]>0 && jpeak>MAX_BACKWARD_CANDLES_FOR_DIVERGENCE){
-         for(int j=jpeak-1;j>=jpeak-MAX_BACKWARD_CANDLES_FOR_DIVERGENCE;j--){
+      if(RSIPeak[jpeak]>0 && jpeak>max_backward_candles_for_divergence){
+         int npeaks_found = 0;
+         for(int j=jpeak-1;j>=jpeak-max_backward_candles_for_divergence;j--){
+            if(npeaks_found>=max_backward_peaks_for_divergence) break;
             if(RSIPeak[j]==1 && RSIPeak[jpeak]==1){ // check regular bearish divergence
                if(RSI[j]>=RSI[jpeak] && high[j]<=high[jpeak]){
                   BearishDivergence[i-1] = RSI[jpeak];
                   for(int k=j;k<=jpeak;k++) BearishDivergenceLine[k] = RSI[j] + (k-j)*(RSI[jpeak]-RSI[j])/(jpeak-j);                  
                }
-               break;
+               npeaks_found++;               
             }else if(RSIPeak[j]==2 && RSIPeak[jpeak]==2){ // check regular bullish divergence
                if(RSI[j]<=RSI[jpeak] && low[j]>=low[jpeak]){
                   BullishDivergence[i-1] = RSI[jpeak];
                   for(int k=j;k<=jpeak;k++) BullishDivergenceLine[k] = RSI[j] + (k-j)*(RSI[jpeak]-RSI[j])/(jpeak-j);
                }
-               break;
+               npeaks_found++;
             }
          }
       }
