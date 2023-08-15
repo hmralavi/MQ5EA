@@ -25,8 +25,11 @@ input double terminate_hour = 0.0;              // terminate all positions/order
 input group "Indicator settings"
 input int ssl_period = 14; // SSL period
 input int min_ssl_breaking_points = 0;  // minimum points to consider SSL is broken
-input int rsi_period = 0; // RSI period for confirmation (set 0 to disable)
 input int ema_period = 0; // EMA period for confirmation (set 0 to disable)
+input int rsi_period = 0; // RSI period for confirmation (set 0 to disable)
+input int rsi_divergence_valid_ncandles = 5;  // number of candles that a divergence remains valid
+input int rsi_divergence_ncandles_peak = 1;  // number of candles to detect peak for RSI divergence
+input int rsi_divergence_npeaks = 2;  // number of peaks in RSI to detect divergence
 
 input group "Position settings"
 input bool multiple_entries = false;  // multiple entries in SSL
@@ -76,7 +79,7 @@ int OnInit()
    else tf = _Period;
    ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\ssl.ex5", ssl_period, true, 0, min_ssl_breaking_points, multiple_entries);
    ChartIndicatorAdd(0, 0, ssl_handle);
-   if(rsi_period>0) rsi_handle = iRSI(_Symbol, tf, rsi_period, PRICE_CLOSE);
+   if(rsi_period>0) rsi_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\HARSI.ex5", rsi_period, 7, PRICE_TYPICAL, rsi_period, rsi_divergence_ncandles_peak, 40, rsi_divergence_npeaks, 0, true, false);
    if(ema_period>0) ema_handle = iMA(_Symbol, tf, ema_period, 0, MODE_EMA, PRICE_CLOSE);
    risk = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, MONTH_ALL, Magic);
@@ -273,11 +276,17 @@ bool get_ssl_sell(int shift=0){
 
 bool rsi_confirmed(bool buy_or_sell){
    if(rsi_period<=0) return true;
-   double val[];
-   ArraySetAsSeries(val, true);
-   CopyBuffer(rsi_handle, 0, 1, 1, val);
-   if(buy_or_sell && val[0]>50) return true;
-   if(!buy_or_sell && val[0]<50) return true;
+   double rsival[], bullish_divergence[], bearish_divergence[];
+   ArraySetAsSeries(rsival, true);
+   ArraySetAsSeries(bullish_divergence, true);
+   ArraySetAsSeries(bearish_divergence, true);
+   CopyBuffer(rsi_handle, 5, 1, rsi_divergence_valid_ncandles, rsival);
+   CopyBuffer(rsi_handle, 6, 1, rsi_divergence_valid_ncandles, bullish_divergence);
+   CopyBuffer(rsi_handle, 7, 1, rsi_divergence_valid_ncandles, bearish_divergence);
+   for(int i=0;i<rsi_divergence_valid_ncandles;i++){
+      if(buy_or_sell && bullish_divergence[i]!=EMPTY_VALUE) return true;
+      else if(!buy_or_sell && bearish_divergence[i]!=EMPTY_VALUE) return true;
+   }
    return false;   
 }
 
