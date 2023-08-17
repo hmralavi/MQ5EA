@@ -1,6 +1,6 @@
 #property indicator_chart_window
-#property indicator_buffers 10
-#property indicator_plots   10
+#property indicator_buffers 8
+#property indicator_plots   8
 
 #property indicator_type1   DRAW_LINE
 #property indicator_color1  clrBlue
@@ -22,41 +22,39 @@
 #property indicator_width4  4
 #property indicator_label4  "SSL sell"
 
-#property indicator_type5 DRAW_NONE
-#property indicator_label5    "SSL Trend Length"
+#property indicator_type5   DRAW_ARROW
+#property indicator_color5  clrYellow
+#property indicator_width5  4
+#property indicator_label5  "SSL Trend length Avg"
 
-#property indicator_type6 DRAW_NONE
-#property indicator_label6    "SSL Average Trend Length"
+#property indicator_type6   DRAW_LINE
+#property indicator_color6  clrGreen
+#property indicator_width6  2
+#property indicator_label6  "SSL Trend length STD"
 
 #property indicator_type7 DRAW_NONE
-#property indicator_label7    "SSL WinRate%"
+#property indicator_label7    "SSL Current Trend Length"
 
 #property indicator_type8 DRAW_NONE
-#property indicator_label8    "SSL Profit Points"
+#property indicator_label8    "SSL Average Trend Length"
 
-#property indicator_type9 DRAW_NONE
-#property indicator_label9    "SSL Loss Points"
-
-#property indicator_type10 DRAW_NONE
-#property indicator_label10    "SSL Net Profit Points"
-
-
-input uint   period=13;           // Moving averages period;
+input int   period=13;           // Moving averages period;
 input bool   NRTR=true;           // NRTR
 input int    min_breaking_points=0;   // minimum breaking points
 input bool   multiple_entries=false;  // Multiple entry signals
-input int    backtest_ntrends=5;  // Number of previous trends for backtesting
+input int    multiple_entry_trigger_points=20;  // multiple entry: Offset points for triggeing
+input int    backtest_ntrends=5;  // Number of previous trends to analyze
+input int    backtest_trend_shift=0;  // Trend shift for analyzing
+input double trend_length_pass_factor=1;  // Std coefficient
 
 double ExtMapBufferUp[];
 double ExtMapBufferDown[];
 double ExtMapBufferUp1[];
 double ExtMapBufferDown1[];
-double ExtTrendLength[];
+double ExtTrendLengthAvg[];
+double ExtTrendLengthStd[];
+double ExtCurrentTrendLength[];
 double ExtAverageTrendLength[];
-double ExtWinRate[];
-double ExtProfitPoints[];
-double ExtLossPoints[];
-double ExtNetProfitPoints[];
 
 #define RESET  0 // The constant for returning the indicator recalculation command to the terminal
 
@@ -101,14 +99,22 @@ int OnInit()
    PlotIndexSetInteger(3,PLOT_DRAW_BEGIN,min_rates_total);
    ArraySetAsSeries(ExtMapBufferDown1,true);
    PlotIndexSetDouble(3,PLOT_EMPTY_VALUE,EMPTY_VALUE);
-   PlotIndexSetInteger(3,PLOT_ARROW,159);
    
-   SetIndexBuffer(4,ExtTrendLength,INDICATOR_DATA);
-   SetIndexBuffer(5,ExtAverageTrendLength,INDICATOR_DATA);
-   SetIndexBuffer(6,ExtWinRate,INDICATOR_DATA);
-   SetIndexBuffer(7,ExtProfitPoints,INDICATOR_DATA);
-   SetIndexBuffer(8,ExtLossPoints,INDICATOR_DATA);
-   SetIndexBuffer(9,ExtNetProfitPoints,INDICATOR_DATA);
+   SetIndexBuffer(4,ExtTrendLengthAvg,INDICATOR_DATA);
+   PlotIndexSetInteger(4,PLOT_DRAW_BEGIN,min_rates_total);
+   ArraySetAsSeries(ExtTrendLengthAvg,true);
+   PlotIndexSetDouble(4,PLOT_EMPTY_VALUE,EMPTY_VALUE);
+   
+   SetIndexBuffer(5,ExtTrendLengthStd,INDICATOR_DATA);
+   PlotIndexSetInteger(5,PLOT_DRAW_BEGIN,min_rates_total);
+   ArraySetAsSeries(ExtTrendLengthStd,true);
+   PlotIndexSetDouble(5,PLOT_EMPTY_VALUE,EMPTY_VALUE);
+   
+   SetIndexBuffer(6,ExtCurrentTrendLength,INDICATOR_DATA);
+   ArraySetAsSeries(ExtCurrentTrendLength,true);
+   
+   SetIndexBuffer(7,ExtAverageTrendLength,INDICATOR_DATA);
+   ArraySetAsSeries(ExtAverageTrendLength,true);
 
    string shortname;
    StringConcatenate(shortname,"SSL(",period,")");
@@ -172,6 +178,9 @@ int OnCalculate(const int rates_total,    // amount of history in bars at the cu
       ExtMapBufferDown[bar]=EMPTY_VALUE;
       ExtMapBufferUp1[bar]=EMPTY_VALUE;
       ExtMapBufferDown1[bar]=EMPTY_VALUE;
+      ExtTrendLengthAvg[bar]=EMPTY_VALUE;
+      ExtTrendLengthStd[bar]=EMPTY_VALUE;
+      ExtCurrentTrendLength[bar] = ExtCurrentTrendLength[bar+1] + 1;
 
       if(close[bar]-min_breaking_points*_Point>=HMA[bar+1]) Hld=+1;
       else
@@ -192,12 +201,50 @@ int OnCalculate(const int rates_total,    // amount of history in bars at the cu
          else  if(ExtMapBufferUp[bar+1]!=EMPTY_VALUE) ExtMapBufferUp[bar]=MathMax(LMA[bar+1],ExtMapBufferUp[bar+1]);
         }
 
-      if((ExtMapBufferUp[bar+1]==EMPTY_VALUE && ExtMapBufferUp[bar]!=EMPTY_VALUE) || (multiple_entries && ExtMapBufferUp[bar+1]!=EMPTY_VALUE && ExtMapBufferUp[bar]!=EMPTY_VALUE && low[bar]-0.5*min_breaking_points*_Point<=ExtMapBufferUp[bar] && ExtMapBufferUp1[bar+1]==EMPTY_VALUE)) ExtMapBufferUp1[bar]=ExtMapBufferUp[bar];
-      if((ExtMapBufferDown[bar+1]==EMPTY_VALUE && ExtMapBufferDown[bar]!=EMPTY_VALUE) || (multiple_entries && ExtMapBufferDown[bar+1]!=EMPTY_VALUE && ExtMapBufferDown[bar]!=EMPTY_VALUE && high[bar]+0.5*min_breaking_points*_Point>=ExtMapBufferDown[bar] && ExtMapBufferDown1[bar+1]==EMPTY_VALUE)) ExtMapBufferDown1[bar]=ExtMapBufferDown[bar];
+      if(ExtMapBufferUp[bar+1]==EMPTY_VALUE && ExtMapBufferUp[bar]!=EMPTY_VALUE){
+         ExtMapBufferUp1[bar] = ExtMapBufferUp[bar];
+         ExtCurrentTrendLength[bar] = 1;
+      }else if(multiple_entries && ExtMapBufferUp[bar+1]!=EMPTY_VALUE && ExtMapBufferUp[bar]!=EMPTY_VALUE && low[bar]-multiple_entry_trigger_points*_Point<=ExtMapBufferUp[bar]){
+         ExtMapBufferUp1[bar] = ExtMapBufferUp[bar];
+      }               
+        
+      if(ExtMapBufferDown[bar+1]==EMPTY_VALUE && ExtMapBufferDown[bar]!=EMPTY_VALUE){
+         ExtMapBufferDown1[bar] = ExtMapBufferDown[bar];
+         ExtCurrentTrendLength[bar] = 1;
+      }else if(multiple_entries && ExtMapBufferDown[bar+1]!=EMPTY_VALUE && ExtMapBufferDown[bar]!=EMPTY_VALUE && high[bar]+multiple_entry_trigger_points*_Point>=ExtMapBufferDown[bar]){
+         ExtMapBufferDown1[bar] = ExtMapBufferDown[bar];
+      }      
 
       if(bar) trend_=trend;
       
+      int ntrend = 0;
+      vector<double> ncandles = vector::Zeros(0);
+      for(int iback=bar;iback<rates_total-period-1;iback++){
+         if(ntrend>backtest_trend_shift){
+            ncandles[ntrend-backtest_trend_shift-1]++;
+         }
+         if((ExtMapBufferDown[iback]==EMPTY_VALUE && ExtMapBufferDown[iback+1]!=EMPTY_VALUE) || (ExtMapBufferDown[iback]!=EMPTY_VALUE && ExtMapBufferDown[iback+1]==EMPTY_VALUE)){
+            ntrend++;
+            if(ntrend>backtest_ntrends+backtest_trend_shift) break;
+            if(ntrend>backtest_trend_shift){
+               ncandles.Resize(ntrend-backtest_trend_shift);
+               ncandles[ntrend-backtest_trend_shift-1] = 0;
+            }
+         }         
+      }
       
+      double lengthmean = ncandles.Mean();
+      double lengthstd = ncandles.Std();
+      ExtAverageTrendLength[bar] = lengthmean;
+      if(ExtCurrentTrendLength[bar]>1 && (ExtCurrentTrendLength[bar]<=lengthmean + trend_length_pass_factor*lengthstd) && (ExtCurrentTrendLength[bar]>=lengthmean - trend_length_pass_factor*lengthstd)){
+         if(ExtMapBufferDown[bar]!=EMPTY_VALUE) ExtTrendLengthStd[bar]=ExtMapBufferDown[bar]+10*_Point;
+         if(ExtMapBufferUp[bar]!=EMPTY_VALUE) ExtTrendLengthStd[bar]=ExtMapBufferUp[bar]-10*_Point;
+      }   
+      if((ExtCurrentTrendLength[bar]<=lengthmean + 0.5) && (ExtCurrentTrendLength[bar]>=lengthmean - 0.5)){
+         if(ExtMapBufferDown[bar]!=EMPTY_VALUE) ExtTrendLengthAvg[bar]=ExtMapBufferDown[bar]+10*_Point;
+         if(ExtMapBufferUp[bar]!=EMPTY_VALUE) ExtTrendLengthAvg[bar]=ExtMapBufferUp[bar]-10*_Point;
+      }
+                
      }
 //----     
    return(rates_total);
