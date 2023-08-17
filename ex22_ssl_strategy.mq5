@@ -57,7 +57,7 @@ input group "News Handling"
 input int stop_minutes_before_news = 0;
 input int stop_minutes_after_news = 0;
 input string country_name = "US";
-input string important_news = "CPI;Interest;Nonfarm;Unemployment;GDP;NFP;PMI";
+input string important_news = MY_IMPORTANT_NEWS;
 
 CTrade trade;
 int ssl_handle, rsi_handle, ema_handle;

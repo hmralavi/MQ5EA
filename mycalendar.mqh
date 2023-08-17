@@ -1,4 +1,5 @@
-#define FILE_NAME "news/mynewshistory.bin" 
+#define FILE_NAME "news/mynewshistory.bin"
+#define MY_IMPORTANT_NEWS "CPI;Interest;Nonfarm;Unemployment;Employment;GDP;NFP;PMI;Retail Sale;Empire State Manufacturing"
 
 struct MyNewsStruct{ 
    ulong                               value_id;              // value ID 
@@ -216,10 +217,10 @@ void CNews::read_live(void){
 
 bool CNews::is_title_pass_filter(string title){
    if(nfilt>0){
+      string t = title;
+      StringToLower(t);
+      StringReplace(t, " ", "");
       for(int k=0;k<nfilt;k++){
-         string t = title;
-         StringToLower(t);
-         StringReplace(t, " ", "");
          if(StringFind(t, filt[k], 0)>-1) return true;
       }
       return false;
