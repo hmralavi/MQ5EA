@@ -44,6 +44,7 @@ input int    min_breaking_points=0;   // minimum breaking points
 input bool   multiple_entries=false;  // Multiple entry signals
 input int    multiple_entry_trigger_points=20;  // multiple entry: Offset points for triggeing
 input int    backtest_ntrends=5;  // Number of previous trends to analyze
+input bool   backtest_similar_direction_trends_only=false;  // analyze only same direction trends
 input int    backtest_trend_shift=0;  // Trend shift for analyzing
 input double trend_length_pass_factor=1;  // Std coefficient
 
@@ -220,6 +221,10 @@ int OnCalculate(const int rates_total,    // amount of history in bars at the cu
       int ntrend = 0;
       vector<double> ncandles = vector::Zeros(0);
       for(int iback=bar;iback<rates_total-period-1;iback++){
+         if(backtest_similar_direction_trends_only){
+            if(ExtMapBufferUp[bar]!=EMPTY_VALUE && ExtMapBufferUp[iback]==EMPTY_VALUE) continue;
+            if(ExtMapBufferDown[bar]!=EMPTY_VALUE && ExtMapBufferDown[iback]==EMPTY_VALUE) continue;
+         }
          if(ntrend>backtest_trend_shift){
             ncandles[ntrend-backtest_trend_shift-1]++;
          }
