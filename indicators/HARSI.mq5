@@ -38,16 +38,21 @@
 #property indicator_label6    "Bearish Divergence Line"
 
 //--- input parameters
-input int harsi_length=14; // RSI length for HA candles calculation
-input int harsi_smoothing_length = 7;
-input ENUM_APPLIED_PRICE rsi_source = PRICE_MEDIAN;
-input int rsi_length=7; // RSI length for RSI plot
-input int ncandles_rsi_peak = 1;
-input int max_backward_candles_for_divergence = 40;
-input int max_backward_peaks_for_divergence = 3;
-input double equal_peaks_margin_points = 0;
-input bool rsi_smoothing=true;
-input bool enable_alert = false;
+input int harsi_length=14; // HA candles RSI period
+input int harsi_smoothing_length = 7;  // HA candles smoothing period
+input ENUM_APPLIED_PRICE rsi_source = PRICE_MEDIAN;  // RSI line source
+input int rsi_length=7; // RSI line period
+input bool rsi_smoothing=true;  // RSI line smoothing
+input int ncandles_rsi_peak = 1;  // Number of candles to form a peak (to calculate RSI divergence)
+input double rsi_divergence_min_slope = 0;  // Min slope of the RSI divergence
+input double equal_peaks_margin_points = 0;  // Equal peaks points
+input int max_backward_candles_for_divergence = 40;  // Number of backward candles to find peaks (to calculate RSI divergence)
+input int max_backward_peaks_for_divergence = 3; // Maximum number of consecutive peaks that can form a divergence
+input bool only_head_and_shoulder_divergence = false; // Show head & shoulder divergences only
+input bool enable_alert = false;  // Enable alert
+
+#define RSI_DIVERGENCE_MIN_HEAD_HEIGHT 5
+#define PI 3.14159265
 //--- indicator buffers
 double HAO[], HAH[], HAL[], HAC[], HAClr[]; // heiken ashi candles
 double RSI[];  // RSI line
@@ -190,14 +195,46 @@ int OnCalculate(const int rates_total,
             if(npeaks_found>=max_backward_peaks_for_divergence) break;
             if(RSIPeak[j]==1 && RSIPeak[jpeak]==1){ // check regular bearish divergence
                if((RSI[j]>=RSI[jpeak]-equal_peaks_margin_points*0.1) && (high[j]<=high[jpeak]+equal_peaks_margin_points*_Point)){
-                  BearishDivergence[i-1] = RSI[jpeak];
-                  for(int k=j;k<=jpeak;k++) BearishDivergenceLine[k] = RSI[j] + (k-j)*(RSI[jpeak]-RSI[j])/(jpeak-j);                  
+                  bool divergence_confirmed = false;
+                  if(only_head_and_shoulder_divergence){
+                     for(int m=j+1;m<jpeak;m++){
+                        if(RSIPeak[m]==1 && RSI[m]>(m-j)*(RSI[jpeak]-RSI[j])/(jpeak-j)+RSI[j]+RSI_DIVERGENCE_MIN_HEAD_HEIGHT){
+                           divergence_confirmed = true;
+                           break;
+                        }
+                     }
+                  }else{
+                     divergence_confirmed = true;
+                  }
+                  if(divergence_confirmed && rsi_divergence_min_slope>0){
+                     if(MathAbs(calc_slope(RSI[j],j,RSI[jpeak],jpeak))<rsi_divergence_min_slope) divergence_confirmed = false;
+                  }
+                  if(divergence_confirmed){
+                     BearishDivergence[i-1] = RSI[jpeak];
+                     for(int k=j;k<=jpeak;k++) BearishDivergenceLine[k] = RSI[j] + (k-j)*(RSI[jpeak]-RSI[j])/(jpeak-j);
+                  }     
                }
                npeaks_found++;               
             }else if(RSIPeak[j]==2 && RSIPeak[jpeak]==2){ // check regular bullish divergence
                if((RSI[j]<=RSI[jpeak]+equal_peaks_margin_points*0.1) && (low[j]>=low[jpeak]-equal_peaks_margin_points*_Point)){
-                  BullishDivergence[i-1] = RSI[jpeak];
-                  for(int k=j;k<=jpeak;k++) BullishDivergenceLine[k] = RSI[j] + (k-j)*(RSI[jpeak]-RSI[j])/(jpeak-j);
+                  bool divergence_confirmed = false;
+                  if(only_head_and_shoulder_divergence){
+                     for(int m=j+1;m<jpeak;m++){
+                        if(RSIPeak[m]==2 && RSI[m]<(m-j)*(RSI[jpeak]-RSI[j])/(jpeak-j)+RSI[j]-RSI_DIVERGENCE_MIN_HEAD_HEIGHT){
+                           divergence_confirmed = true;
+                           break;
+                        }
+                     }
+                  }else{
+                     divergence_confirmed = true;
+                  }
+                  if(divergence_confirmed && rsi_divergence_min_slope>0){
+                     if(MathAbs(calc_slope(RSI[j],j,RSI[jpeak],jpeak))<rsi_divergence_min_slope) divergence_confirmed = false;
+                  }
+                  if(divergence_confirmed){
+                     BullishDivergence[i-1] = RSI[jpeak];
+                     for(int k=j;k<=jpeak;k++) BullishDivergenceLine[k] = RSI[j] + (k-j)*(RSI[jpeak]-RSI[j])/(jpeak-j);
+                  }     
                }
                npeaks_found++;
             }
@@ -210,3 +247,11 @@ int OnCalculate(const int rates_total,
    return(rates_total);
   }
 //+------------------------------------------------------------------+
+
+
+double calc_slope(double p1, double i1, double p2, double i2){
+   double m = (p1-p2)/(i1-i2);
+   double rad = atan(m);
+   double deg = 90*MathAbs(rad)/(PI/2);
+   return deg;   
+}
