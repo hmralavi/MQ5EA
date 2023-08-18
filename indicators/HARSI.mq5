@@ -178,6 +178,7 @@ int OnCalculate(const int rates_total,
       BearishDivergenceLine[i] = EMPTY_VALUE;
       RSIPeak[i] = 0;
       int jpeak = i-1-ncandles_rsi_peak;
+      if((jpeak-ncandles_rsi_peak)<0) continue;      
       bool istop = true;
       bool isbottom = true;
       for(int j=-ncandles_rsi_peak;j<=ncandles_rsi_peak;j++){
