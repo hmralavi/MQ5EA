@@ -10,8 +10,9 @@ Strategy:
 #include <../Experts/mq5ea/mycalendar.mqh>
 
 enum ENUM_EARLY_EXIT_POLICY{
-   EARLY_EXIT_POLICY_BREAKEVEN = 0,  // Breakeven if in loss/Instant exit if in profit
-   EARLY_EXIT_POLICY_INSTANT = 1  // instant exit anyway
+   EARLY_EXIT_POLICY_BREAKEVEN_NOTHING = 0,  // Breakeven if in loss/do nothing if in profit
+   EARLY_EXIT_POLICY_BREAKEVEN_EXIT = 1,  // Breakeven if in loss/instant exit if in profit
+   EARLY_EXIT_POLICY_INSTANT = 2  // instant exit anyway
 };
 
 input group "Time settings"
@@ -41,7 +42,7 @@ input double Rr = 0.0; // reward/risk ratio (set 0 to disable tp)
 input int sl_offset_points = 0;  // sl offset points from ssl
 input int tsl_offset_points = 0;  //TSL offset points from ssl (set 0 to disable)
 input double riskfree_ratio = 0.0;  // RiskFree (proportion of SL) (set 0 to disable)
-input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN;  // how exit position when trend changes?
+input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN_NOTHING;  // how exit position when trend changes?
 
 input group "Run for prop challenge"
 input bool prop_challenge_criteria_enabled = true; // Enabled?
@@ -167,9 +168,8 @@ void OnTick()
             trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
          }else if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price && (open_price-curr_price)>=riskfree_ratio*(curr_sl-open_price)){
             trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
-         }   
-      }  
-   
+         }
+      }
    }
      
    if(tsl_offset_points>0){
@@ -205,9 +205,7 @@ void OnTick()
          run_early_exit_policy(0);
       }
    }
-   
-
-   
+    
    ArrayResize(pos_tickets, 0);
    ArrayResize(ord_tickets, 0);
    GetMyPositionsTickets(Magic, pos_tickets);
@@ -302,31 +300,27 @@ bool ema_confirmed(bool buy_or_sell){
    return false;   
 }
 
-
 void run_early_exit_policy(int which_positions_type){ // which_positions_type: 0:all, 1:buys only, 2:sell only
    if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT){
-      CloseAllPositions(trade, which_positions_type);      
-   }else if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN){
+      CloseAllPositions(trade, which_positions_type);
+   }else if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN_EXIT || early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN_NOTHING){
       ulong pos_tickets[];
       GetMyPositionsTickets(Magic, pos_tickets);
-      int npos = ArraySize(pos_tickets);  
+      int npos = ArraySize(pos_tickets);
       for(int ipos=0;ipos<npos;ipos++){
          PositionSelectByTicket(pos_tickets[ipos]);
          ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+         if((which_positions_type==1 && pos_type==POSITION_TYPE_SELL) || (which_positions_type==2 && pos_type==POSITION_TYPE_BUY)) continue;
+         double current_profit = PositionGetDouble(POSITION_PROFIT);
+         if(current_profit>=0){
+            if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN_EXIT) trade.PositionClose(pos_tickets[ipos]);
+            continue;
+         }
          double current_sl = PositionGetDouble(POSITION_SL);
          double current_tp = PositionGetDouble(POSITION_TP);
-         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-         if(pos_type==POSITION_TYPE_BUY && current_sl<open_price && (current_tp>open_price || current_tp==0) && (which_positions_type==0 || which_positions_type==1)){
-            double bidprice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-            double profit_points = (bidprice-open_price)/_Point;
-            if(profit_points>=0) trade.PositionClose(pos_tickets[ipos]);
-            else trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
-         }else if(pos_type==POSITION_TYPE_SELL && current_sl>open_price && (current_tp<open_price || current_tp==0) && (which_positions_type==0 || which_positions_type==2)){
-            double askprice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-            double profit_points = (open_price-askprice)/_Point;
-            if(profit_points>=0) trade.PositionClose(pos_tickets[ipos]);
-            else trade.PositionModify(pos_tickets[ipos], current_sl, open_price);              
-         }
+         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);         
+         if(pos_type==POSITION_TYPE_BUY && current_sl<open_price && (current_tp>open_price || current_tp==0)) trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
+         else if(pos_type==POSITION_TYPE_SELL && current_sl>open_price && (current_tp<open_price || current_tp==0)) trade.PositionModify(pos_tickets[ipos], current_sl, open_price);            
       }
    }
 }
