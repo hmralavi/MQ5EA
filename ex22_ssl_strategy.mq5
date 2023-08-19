@@ -30,6 +30,8 @@ input int rsi_period = 0; // RSI period for confirmation (set 0 to disable)
 input int rsi_divergence_valid_ncandles = 5;  // number of candles that a divergence remains valid
 input int rsi_divergence_ncandles_peak = 1;  // number of candles to detect peak for RSI divergence
 input int rsi_divergence_npeaks = 2;  // number of peaks in RSI to detect divergence
+input double rsi_divergence_min_slope = 20;  // Min slope for RSI divergence
+input bool rsi_divergence_head_shoulder_only = false;  // Head&shoulder RSI divergence only
 
 input group "Position settings"
 input bool multiple_entries = false;  // multiple entries in SSL
