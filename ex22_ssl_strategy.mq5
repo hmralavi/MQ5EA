@@ -132,8 +132,8 @@ void OnTick()
    
    if(terminate_hour>0){
       if(!is_session_time_allowed_double(session_start_hour, terminate_hour)){
+         run_early_exit_policy(0);
          DeleteAllOrders(trade);
-         CloseAllPositions(trade);
          return;
       }
    }

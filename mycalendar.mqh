@@ -1,5 +1,5 @@
 #define FILE_NAME "news/mynewshistory.bin"
-#define MY_IMPORTANT_NEWS "CPI;Interest;Nonfarm;Unemployment;Employment;Jobless Claims;GDP;NFP;PMI;Retail Sale;Empire State Manufacturing"
+#define MY_IMPORTANT_NEWS "CPI;Interest;Nonfarm;Unemployment;Employment;Jobless Claims;GDP;NFP;PMI;Retail Sale;Empire State Manufacturing;Fed Chair"
 
 struct MyNewsStruct{ 
    ulong                               value_id;              // value ID 
