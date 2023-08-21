@@ -122,8 +122,8 @@ void OnTick()
    
    double ea_profit, ea_drawdown, ea_today_profit;
    ea_today_profit = calculate_today_profit(Magic);
-   if(max_daily_loss_allowed>0 && ea_today_profit<0) risk = MathMax(MathMin(risk_original, max_daily_loss_allowed+ea_today_profit), 0);
-   else if(max_daily_profit_allowed>0 && ea_today_profit>0) risk = MathMax(MathMin(risk_original, max_daily_profit_allowed-ea_today_profit), 0);
+   if(max_daily_loss_allowed>0) risk = MathMax(MathMin(risk_original, max_daily_loss_allowed+ea_today_profit), 0);
+   else if(max_daily_profit_allowed>0) risk = MathMax(MathMin(risk_original, max_daily_profit_allowed-ea_today_profit), 0);
    else risk = risk_original;
    if((!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) && !MQLInfoInteger(MQL_OPTIMIZATION) && !MQLInfoInteger(MQL_FORWARD)){
       calculate_all_trades_profit_drawdown(Magic, ea_profit, ea_drawdown);
