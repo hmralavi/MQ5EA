@@ -477,3 +477,79 @@ double get_average_spread(){
    spread = round(spread)*_Point;
    return spread;
 }
+
+double calculate_today_profit(int magic_number){
+   MqlDateTime time_start, time_end;
+   TimeToStruct(TimeCurrent(), time_start);
+   TimeToStruct(TimeCurrent(), time_end);
+   time_start.hour=0;
+   time_start.min=0;
+   time_start.sec=0;
+   time_end.hour=23;
+   time_end.min=59;
+   time_end.sec=59;
+
+   datetime datetime_start = StructToTime(time_start);
+   datetime datetime_end = StructToTime(time_end);
+
+   double prof = 0;
+   HistorySelect(datetime_start, datetime_end);
+   int ndeals = HistoryDealsTotal();
+   for(int i=0;i<ndeals;i++){
+      ulong dealticket = HistoryDealGetTicket(i);
+      int magic = (int)HistoryDealGetInteger(dealticket, DEAL_MAGIC);
+      if(magic != magic_number) continue;
+      prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
+   }
+   ulong pos_tickets[];
+   GetMyPositionsTickets(magic_number, pos_tickets);
+   int npos = ArraySize(pos_tickets);
+   for(int ipos=0;ipos<npos;ipos++){
+      PositionSelectByTicket(pos_tickets[ipos]);
+      prof += PositionGetDouble(POSITION_PROFIT);
+   }
+   return prof;
+}
+
+void calculate_all_trades_profit_drawdown(int magic_number, double& profit, double& drawdown){
+   MqlDateTime time_start, time_end;
+   TimeToStruct(TimeCurrent(), time_start);
+   TimeToStruct(TimeCurrent(), time_end);
+   time_start.day = 1;
+   time_start.mon = 1;
+   time_start.year = 2000;
+   time_start.hour = 0;
+   time_start.min = 0;
+   time_start.sec = 0;
+   time_end.day = 1;
+   time_end.mon = 1;
+   time_end.year = 2030;
+   time_end.hour = 0;
+   time_end.min = 0;
+   time_end.sec = 0;
+
+   datetime datetime_start = StructToTime(time_start);
+   datetime datetime_end = StructToTime(time_end);
+
+   double prof = 0;
+   double dd = 0;
+   HistorySelect(datetime_start, datetime_end);
+   int ndeals = HistoryDealsTotal();
+   for(int i=0;i<ndeals;i++){
+      ulong dealticket = HistoryDealGetTicket(i);
+      int magic = (int)HistoryDealGetInteger(dealticket, DEAL_MAGIC);
+      if(magic != magic_number) continue;
+      prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
+      dd = MathMin(dd, prof);
+   }
+   ulong pos_tickets[];
+   GetMyPositionsTickets(magic_number, pos_tickets);
+   int npos = ArraySize(pos_tickets);
+   for(int ipos=0;ipos<npos;ipos++){
+      PositionSelectByTicket(pos_tickets[ipos]);
+      prof += PositionGetDouble(POSITION_PROFIT);
+      dd = MathMin(dd, prof);
+   }
+   profit = prof;
+   drawdown = dd;
+}

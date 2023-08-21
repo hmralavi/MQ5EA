@@ -40,19 +40,22 @@ input int stop_limit_offset_points = 0;  // stop limit offset points (set 0 for 
 input double risk_original = 100;  // risk usd per trade
 input double Rr = 0.0; // reward/risk ratio (set 0 to disable tp)
 input int sl_offset_points = 0;  // sl offset points from ssl
+input int sl_min_points = 0;  // sl min points (set 0 to ignore)
+input int sl_max_points = 0;  // sl max points (set 0 to ignore)
 input int tsl_offset_points = 0;  //TSL offset points from ssl (set 0 to disable)
 input double riskfree_ratio = 0.0;  // RiskFree (proportion of SL) (set 0 to disable)
 input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN_NOTHING;  // how exit position when trend changes?
 
-input group "Run for prop challenge"
-input bool prop_challenge_criteria_enabled = true; // Enabled?
-input double prop_challenge_min_profit_usd = 800; // Min profit desired(usd);
-input double prop_challenge_max_drawdown_usd = 1200;  // Max drawdown desired(usd);
-input double prop_challenge_daily_loss_limit = 450;  // Max loss (usd) in one day
-input double new_risk_if_prop_passed = 10; // new risk (usd) if prop challenge is passed.
+input group "Settings for prop challenge report"
+input double prop_challenge_min_profit_usd = 800; // Profit (usd)
+input double prop_challenge_max_drawdown_usd = 1200;  //  Drawdown (usd)
+input double prop_challenge_daily_loss_limit = 450;  // Daily loss (usd)
 
 input group "EA settings"
-input double equity_stop_trading = 0;  // Stop trading if account equity is above this:
+input double max_daily_loss_allowed = 0;  // Max daily loss allowed
+input double max_daily_profit_allowed = 0; // Max daily profit allowd
+input double equity_above_stop_trading = 0;  // Stop trading if account equity is above this:
+input double equity_below_stop_trading = 0;  // Stop trading if account equity is below this:
 input string PositionComment = "";
 input int Magic = 220;  // EA's magic number
 
@@ -98,29 +101,33 @@ void OnDeinit(const int reason)
 }
 
 void OnTick()
-{ 
-
-   if(equity_stop_trading>0){
+{
+   if(equity_above_stop_trading>0){
       double acc_eq = AccountInfoDouble(ACCOUNT_EQUITY);
-      if(acc_eq>=equity_stop_trading){
+      if(acc_eq>equity_above_stop_trading){
          CloseAllPositions(trade);
          DeleteAllOrders(trade);
          return;
       }
    }
    
-   double period_prof, period_drawdown, today_profit; 
-   if(prop_challenge_criteria_enabled){
-      prop_challenge_criteria.update();
-      period_prof = prop_challenge_criteria.get_current_period_profit();
-      period_drawdown = prop_challenge_criteria.get_current_period_drawdown();
-      today_profit = prop_challenge_criteria.get_today_profit();
-      risk = MathMax(MathMin(risk_original, prop_challenge_daily_loss_limit+today_profit), 0);
-      if(!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE) || !MQLInfoInteger(MQL_OPTIMIZATION)) Comment("EA: ", Magic, "\nToday profit: ", int(today_profit),"\nPeriod Profit: ", int(period_prof), " / " , int(prop_challenge_min_profit_usd), "\nPeriod Drawdown: ", int(period_drawdown), " / " , int(prop_challenge_max_drawdown_usd), "\nRisk: ", int(risk), " / " , int(prop_challenge_daily_loss_limit));
-      //if(period_prof>=prop_challenge_min_profit_usd*1.01 && risk>new_risk_if_prop_passed){
-      //   DeleteAllOrders(trade);
-      //   CloseAllPositions(trade);
-      //}
+   if(equity_below_stop_trading>0){
+      double acc_eq = AccountInfoDouble(ACCOUNT_EQUITY);
+      if(acc_eq<equity_below_stop_trading){
+         CloseAllPositions(trade);
+         DeleteAllOrders(trade);
+         return;
+      }
+   }
+   
+   double ea_profit, ea_drawdown, ea_today_profit;
+   ea_today_profit = calculate_today_profit(Magic);
+   if(max_daily_loss_allowed>0 && ea_today_profit<0) risk = MathMax(MathMin(risk_original, max_daily_loss_allowed+ea_today_profit), 0);
+   else if(max_daily_profit_allowed>0 && ea_today_profit>0) risk = MathMax(MathMin(risk_original, max_daily_profit_allowed-ea_today_profit), 0);
+   else risk = risk_original;
+   if((!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) && !MQLInfoInteger(MQL_OPTIMIZATION) && !MQLInfoInteger(MQL_FORWARD)){
+      calculate_all_trades_profit_drawdown(Magic, ea_profit, ea_drawdown);
+      Comment(StringFormat("EA: %d     Current allowed risk: %.0f     Today profit: %.0f (%.0f, %.0f)     Total profit: %.0f     Total drawdown: %.0f", Magic, risk, ea_today_profit,-max_daily_loss_allowed, max_daily_profit_allowed, ea_profit, ea_drawdown));
    }
    
    if(terminate_hour>0){
@@ -224,6 +231,7 @@ void OnTick()
       if(stop_limit_offset_points>0) p = MathMax(iHigh(_Symbol, tf, 1), p) + stop_limit_offset_points*_Point;
       double sl = MathMin(ssl_upper, iLow(_Symbol, tf, 1)) - sl_offset_points*_Point;
       if(p<sl) return;
+      if((sl_min_points>0 && (p-sl)<sl_min_points*_Point) || (sl_max_points>0 && (p-sl)>sl_max_points*_Point)) return;
       double lot_size = normalize_volume(calculate_lot_size((p-sl)/_Point, risk));
       p = NormalizeDouble(p, _Digits);
       sl = NormalizeDouble(sl, _Digits);
@@ -237,6 +245,7 @@ void OnTick()
       if(stop_limit_offset_points>0) p = MathMin(iLow(_Symbol, tf, 1), p) - stop_limit_offset_points*_Point;
       double sl = MathMax(ssl_lower, iHigh(_Symbol, tf, 1)) + sl_offset_points*_Point;
       if(p>sl) return;
+      if((sl_min_points>0 && (sl-p)<sl_min_points*_Point) || (sl_max_points>0 && (sl-p)>sl_max_points*_Point)) return;
       double lot_size = normalize_volume(calculate_lot_size((sl-p)/_Point, risk));
       p = NormalizeDouble(p, _Digits);
       sl = NormalizeDouble(sl, _Digits);
@@ -343,7 +352,7 @@ bool AllPositionsRiskfreed(void){  // checks if all current position are risk fr
 }
 
 double OnTester(void){
-   return print_prop_challenge_report(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_daily_loss_limit*1.1);
+   return print_prop_challenge_report(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_daily_loss_limit);
 }
 
 void update_news(void){
