@@ -2,15 +2,15 @@
 #define MY_IMPORTANT_NEWS "CPI;Interest;Nonfarm;Unemployment;Employment;Jobless Claims;GDP;NFP;PMI;Retail Sale;Empire State Manufacturing;Fed Chair"
 
 struct MyNewsStruct{ 
-   ulong                               value_id;              // value ID 
-   ulong                               event_id;              // event ID 
-   datetime                            time;                  // event date and time 
-   double                              actual_value;          // actual value 
-   double                              prev_value;            // previous value 
-   double                              forecast_value;        // forecast value 
-   ENUM_CALENDAR_EVENT_IMPACT          impact_type;           // potential impact on the currency rate 
-   ENUM_CALENDAR_EVENT_IMPORTANCE      importance;            // Importance
    string                              title;                 // Title
+   ulong                               value_id;              // value ID
+   ulong                               event_id;              // event ID
+   datetime                            time;                  // event date and time
+   ENUM_CALENDAR_EVENT_IMPORTANCE      importance;            // Importance
+   double                              actual_value;          // actual value
+   double                              prev_value;            // previous value
+   double                              forecast_value;        // forecast value
+   ENUM_CALENDAR_EVENT_IMPACT          impact_type;           // potential impact on the currency rate
 }; 
 
 

@@ -10,8 +10,8 @@ Strategy:
 #include <../Experts/mq5ea/mycalendar.mqh>
 
 enum ENUM_EARLY_EXIT_POLICY{
-   EARLY_EXIT_POLICY_BREAKEVEN_NOTHING = 0,  // Breakeven if in loss/do nothing if in profit
-   EARLY_EXIT_POLICY_BREAKEVEN_EXIT = 1,  // Breakeven if in loss/instant exit if in profit
+   EARLY_EXIT_POLICY_BREAKEVEN_NOTHING = 0,  // BE in loss/do nothing in profit
+   EARLY_EXIT_POLICY_BREAKEVEN_EXIT = 1,  // BE in loss/instant exit in profit
    EARLY_EXIT_POLICY_INSTANT = 2  // instant exit anyway
 };
 
