@@ -121,10 +121,12 @@ void OnTick()
    }
    
    double ea_profit, ea_drawdown, ea_today_profit;
+   vector<double> all_risks = vector::Zeros(3);
    ea_today_profit = calculate_today_profit(Magic);
-   if(max_daily_loss_allowed>0) risk = MathMax(MathMin(risk_original, max_daily_loss_allowed+ea_today_profit), 0);
-   else if(max_daily_profit_allowed>0) risk = MathMax(MathMin(risk_original, max_daily_profit_allowed-ea_today_profit), 0);
-   else risk = risk_original;
+   all_risks[0] = risk_original;
+   all_risks[1] = ea_today_profit+max_daily_loss_allowed;
+   all_risks[2] = max_daily_profit_allowed-ea_today_profit;
+   risk = MathMax(all_risks.Min(), 0);
    if((!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) && !MQLInfoInteger(MQL_OPTIMIZATION) && !MQLInfoInteger(MQL_FORWARD)){
       calculate_all_trades_profit_drawdown(Magic, ea_profit, ea_drawdown);
       Comment(StringFormat("EA: %d     Current allowed risk: %.0f     Today profit: %.0f (%.0f, %.0f)     Total profit: %.0f     Total drawdown: %.0f", Magic, risk, ea_today_profit,-max_daily_loss_allowed, max_daily_profit_allowed, ea_profit, ea_drawdown));
