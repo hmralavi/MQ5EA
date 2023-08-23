@@ -3,6 +3,10 @@ SSL indicator EA
 
 Strategy:
 
+TODO:
+   1- news ---> us to usd, add other currencies
+   2- risk coefficient (increase or decrease throuoght the day)
+   3- confirmation from other timeframe ssl (omid's idea)
 */
 
 #include <../Experts/mq5ea/mytools.mqh>
