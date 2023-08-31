@@ -41,7 +41,7 @@ input bool rsi_divergence_head_shoulder_only = false;  // Head&shoulder RSI dive
 
 input group "Position settings"
 input int stop_limit_offset_points = 0;  // stop limit offset points (set 0 for instant entry)
-input int multiple_entry_offset_points = -1;  // multiple entry: max offset points from SSL  (set -1 to disable multiple entry)
+input int multiple_entry_offset_points = 0;  // multiple entry: max offset points from SSL  (set 0 to disable multiple entry)
 input double risk_original = 100;  // risk usd per trade
 input double risk_modification_factor = 1; // daily risk modification factor
 input double Rr = 0.0; // reward/risk ratio (set 0 to disable tp)
@@ -89,7 +89,7 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_custom_timeframe) tf = convert_tf(custom_timeframe);
    else tf = _Period;
-   ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", ssl_period, true, min_ssl_breaking_points, multiple_entry_offset_points<0?false:true, multiple_entry_offset_points, 5, true, 0, 1);
+   ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", ssl_period, true, min_ssl_breaking_points, multiple_entry_offset_points>0, multiple_entry_offset_points, 5, true, 0, 1);
    ChartIndicatorAdd(0, 0, ssl_handle);
    if(rsi_period>0) rsi_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\HARSI.ex5", rsi_period, 7, PRICE_TYPICAL, rsi_period, true, rsi_divergence_ncandles_peak, 0, 0, 40, rsi_divergence_npeaks, false, false);
    if(ema_period>0) ema_handle = iMA(_Symbol, tf, ema_period, 0, MODE_EMA, PRICE_CLOSE);
@@ -218,7 +218,7 @@ void OnTick()
    
    if(ssl_buy || ssl_sell){
       DeleteAllOrders(trade);
-      if(multiple_entry_offset_points>=0){
+      if(multiple_entry_offset_points>0){
          if(ssl_upper==EMPTY_VALUE && ssl_lower!=EMPTY_VALUE) run_early_exit_policy(1); // close only buy positions
          if(ssl_upper!=EMPTY_VALUE && ssl_lower==EMPTY_VALUE) run_early_exit_policy(2); // close only sell positions
       }else{
@@ -230,7 +230,7 @@ void OnTick()
    ArrayResize(ord_tickets, 0);
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
-   if(multiple_entry_offset_points>=0){
+   if(multiple_entry_offset_points>0){
       if(!AllPositionsRiskfreed()) return;
    }else{
       if(ArraySize(pos_tickets)>0) return;
