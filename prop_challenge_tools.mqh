@@ -247,7 +247,7 @@ double print_prop_challenge_report(double min_profit_usd, double max_drawdown_us
       }else if(prof>=min_profit_usd){
          results[ArraySize(results)-1] = 1;
          new_challenge = true;
-      }else if((current_date-start_date)/86400>30){
+      }else if(float(current_date-start_date)/PeriodSeconds(PERIOD_D1)>30){
          if(prof<0) results[ArraySize(results)-1] = -1;
          new_challenge = true;
       }

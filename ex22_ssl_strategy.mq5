@@ -14,9 +14,10 @@ TODO:
 #include <../Experts/mq5ea/mycalendar.mqh>
 
 enum ENUM_EARLY_EXIT_POLICY{
-   EARLY_EXIT_POLICY_BREAKEVEN_NOTHING = 0,  // BE in loss/do nothing in profit
-   EARLY_EXIT_POLICY_BREAKEVEN_EXIT = 1,  // BE in loss/instant exit in profit
-   EARLY_EXIT_POLICY_INSTANT = 2  // instant exit anyway
+   EARLY_EXIT_POLICY_BREAKEVEN_NOTHING = 0,  // BE in loss/nothing in profit
+   EARLY_EXIT_POLICY_BREAKEVEN_INSTANT = 1,  // BE in loss/instant exit in profit
+   EARLY_EXIT_POLICY_INSTANT_NOTHING = 2,  // instant exit in loss/nothing in profit
+   EARLY_EXIT_POLICY_INSTANT_INSTANT = 3  // instant exit in loss/instant exit in profit
 };
 
 input group "Time settings"
@@ -39,9 +40,10 @@ input double rsi_divergence_min_slope = 20;  // Min slope for RSI divergence
 input bool rsi_divergence_head_shoulder_only = false;  // Head&shoulder RSI divergence only
 
 input group "Position settings"
-input bool multiple_entries = false;  // multiple entries in SSL
 input int stop_limit_offset_points = 0;  // stop limit offset points (set 0 for instant entry)
+input int multiple_entry_offset_points = -1;  // multiple entry: max offset points from SSL  (set -1 to disable multiple entry)
 input double risk_original = 100;  // risk usd per trade
+input double risk_modification_factor = 1; // daily risk modification factor
 input double Rr = 0.0; // reward/risk ratio (set 0 to disable tp)
 input int sl_offset_points = 0;  // sl offset points from ssl
 input int sl_min_points = 0;  // sl min points (set 0 to ignore)
@@ -72,7 +74,7 @@ input string important_news = MY_IMPORTANT_NEWS;
 CTrade trade;
 int ssl_handle, rsi_handle, ema_handle;
 ENUM_TIMEFRAMES tf;
-double risk;
+double risk, risk_original_modified;
 PropChallengeCriteria prop_challenge_criteria;
 CNews today_news;
 
@@ -87,11 +89,12 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_custom_timeframe) tf = convert_tf(custom_timeframe);
    else tf = _Period;
-   ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", ssl_period, true, min_ssl_breaking_points, multiple_entries, 10, 5, true, 0, 1);
+   ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", ssl_period, true, min_ssl_breaking_points, multiple_entry_offset_points<0?false:true, multiple_entry_offset_points, 5, true, 0, 1);
    ChartIndicatorAdd(0, 0, ssl_handle);
    if(rsi_period>0) rsi_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\HARSI.ex5", rsi_period, 7, PRICE_TYPICAL, rsi_period, true, rsi_divergence_ncandles_peak, 0, 0, 40, rsi_divergence_npeaks, false, false);
    if(ema_period>0) ema_handle = iMA(_Symbol, tf, ema_period, 0, MODE_EMA, PRICE_CLOSE);
    risk = risk_original;
+   risk_original_modified = risk_original;
    prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, MONTH_ALL, Magic);
    return(INIT_SUCCEEDED);
 }
@@ -124,16 +127,20 @@ void OnTick()
       }
    }
    
-   double ea_profit, ea_drawdown, ea_today_profit;
+   update_risk_original_modified();
+   
+   double ea_today_profit;
    vector<double> all_risks = vector::Zeros(3);
    ea_today_profit = calculate_today_profit(Magic);
-   all_risks[0] = risk_original;
+   all_risks[0] = risk_original_modified;
    all_risks[1] = ea_today_profit+max_daily_loss_allowed;
    all_risks[2] = max_daily_profit_allowed-ea_today_profit;
    risk = MathMax(all_risks.Min(), 0);
    if((!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) && !MQLInfoInteger(MQL_OPTIMIZATION) && !MQLInfoInteger(MQL_FORWARD)){
-      calculate_all_trades_profit_drawdown(Magic, ea_profit, ea_drawdown);
-      Comment(StringFormat("EA: %d     Current allowed risk: %.0f     Today profit: %.0f (%.0f, %.0f)     Total profit: %.0f     Total drawdown: %.0f", Magic, risk, ea_today_profit,-max_daily_loss_allowed, max_daily_profit_allowed, ea_profit, ea_drawdown));
+      double ea_profit, ea_drawdown;
+      int ea_total_days;
+      calculate_all_trades_profit_drawdown(Magic, ea_profit, ea_drawdown, ea_total_days);
+      Comment(StringFormat("EA: %d     Current allowed risk: %.0f     Today profit: %.0f (%.0f, %.0f)     Total profit: %.0f     Total drawdown: %.0f     Total days: %d", Magic, risk, ea_today_profit,-max_daily_loss_allowed, max_daily_profit_allowed, ea_profit, ea_drawdown, ea_total_days));
    }
    
    if(terminate_hour>0){
@@ -211,7 +218,7 @@ void OnTick()
    
    if(ssl_buy || ssl_sell){
       DeleteAllOrders(trade);
-      if(multiple_entries){
+      if(multiple_entry_offset_points>=0){
          if(ssl_upper==EMPTY_VALUE && ssl_lower!=EMPTY_VALUE) run_early_exit_policy(1); // close only buy positions
          if(ssl_upper!=EMPTY_VALUE && ssl_lower==EMPTY_VALUE) run_early_exit_policy(2); // close only sell positions
       }else{
@@ -223,7 +230,7 @@ void OnTick()
    ArrayResize(ord_tickets, 0);
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
-   if(multiple_entries){
+   if(multiple_entry_offset_points>=0){
       if(!AllPositionsRiskfreed()) return;
    }else{
       if(ArraySize(pos_tickets)>0) return;
@@ -263,7 +270,6 @@ void OnTick()
    }
 
 }
-
 
 double get_ssl_upper(int shift=0){
    double val[1];
@@ -316,9 +322,9 @@ bool ema_confirmed(bool buy_or_sell){
 }
 
 void run_early_exit_policy(int which_positions_type){ // which_positions_type: 0:all, 1:buys only, 2:sell only
-   if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT){
+   if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT_INSTANT){
       CloseAllPositions(trade, which_positions_type);
-   }else if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN_EXIT || early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN_NOTHING){
+   }else{
       ulong pos_tickets[];
       GetMyPositionsTickets(Magic, pos_tickets);
       int npos = ArraySize(pos_tickets);
@@ -328,8 +334,11 @@ void run_early_exit_policy(int which_positions_type){ // which_positions_type: 0
          if((which_positions_type==1 && pos_type==POSITION_TYPE_SELL) || (which_positions_type==2 && pos_type==POSITION_TYPE_BUY)) continue;
          double current_profit = PositionGetDouble(POSITION_PROFIT);
          if(current_profit>=0){
-            if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN_EXIT) trade.PositionClose(pos_tickets[ipos]);
+            if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN_INSTANT) trade.PositionClose(pos_tickets[ipos]);
             continue;
+         }else if(current_profit<0 && early_exit_policy==EARLY_EXIT_POLICY_INSTANT_NOTHING){
+            trade.PositionClose(pos_tickets[ipos]);
+            continue;            
          }
          double current_sl = PositionGetDouble(POSITION_SL);
          double current_tp = PositionGetDouble(POSITION_TP);
@@ -355,6 +364,34 @@ bool AllPositionsRiskfreed(void){  // checks if all current position are risk fr
       if(!result) break;
    }
    return result;
+}
+
+void update_risk_original_modified(void){
+   MqlDateTime time_start, time_end;
+   TimeToStruct(TimeCurrent(), time_start);
+   TimeToStruct(TimeCurrent(), time_end);
+   time_start.hour=0;
+   time_start.min=0;
+   time_start.sec=0;
+   time_end.hour=23;
+   time_end.min=59;
+   time_end.sec=59;
+
+   datetime datetime_start = StructToTime(time_start);
+   datetime datetime_end = StructToTime(time_end);
+
+   HistorySelect(datetime_start, datetime_end);
+   int ndeals = HistoryDealsTotal();
+   int eadeals = 0;
+   for(int i=0;i<ndeals;i++){
+      ulong dealticket = HistoryDealGetTicket(i);
+      int magic = (int)HistoryDealGetInteger(dealticket, DEAL_MAGIC);
+      if(magic != Magic) continue;
+      ENUM_DEAL_ENTRY entry_type = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(dealticket, DEAL_ENTRY);
+      if(entry_type == DEAL_ENTRY_IN) eadeals++;
+   }
+   double coef = MathPow(risk_modification_factor, eadeals);
+   risk_original_modified = risk_original * coef; 
 }
 
 double OnTester(void){

@@ -42,7 +42,7 @@ input int   period=13;           // Moving averages period;
 input bool   NRTR=true;           // NRTR
 input int    min_breaking_points=0;   // minimum breaking points
 input bool   multiple_entries=false;  // Multiple entry signals
-input int    multiple_entry_trigger_points=20;  // multiple entry: Offset points for triggeing
+input int    multiple_entry_max_offset_points=20;  // multiple entry: Offset points for triggeing
 input int    backtest_ntrends=5;  // Number of previous trends to analyze
 input bool   backtest_similar_direction_trends_only=false;  // analyze only same direction trends
 input int    backtest_trend_shift=0;  // Trend shift for analyzing
@@ -205,14 +205,14 @@ int OnCalculate(const int rates_total,    // amount of history in bars at the cu
       if(ExtMapBufferUp[bar+1]==EMPTY_VALUE && ExtMapBufferUp[bar]!=EMPTY_VALUE){
          ExtMapBufferUp1[bar] = ExtMapBufferUp[bar];
          ExtCurrentTrendLength[bar] = 1;
-      }else if(multiple_entries && ExtMapBufferUp[bar+1]!=EMPTY_VALUE && ExtMapBufferUp[bar]!=EMPTY_VALUE && low[bar]-multiple_entry_trigger_points*_Point<=ExtMapBufferUp[bar]){
+      }else if(multiple_entries && ExtMapBufferUp[bar+1]!=EMPTY_VALUE && ExtMapBufferUp[bar]!=EMPTY_VALUE && low[bar]-multiple_entry_max_offset_points*_Point<=ExtMapBufferUp[bar]){
          ExtMapBufferUp1[bar] = ExtMapBufferUp[bar];
       }               
         
       if(ExtMapBufferDown[bar+1]==EMPTY_VALUE && ExtMapBufferDown[bar]!=EMPTY_VALUE){
          ExtMapBufferDown1[bar] = ExtMapBufferDown[bar];
          ExtCurrentTrendLength[bar] = 1;
-      }else if(multiple_entries && ExtMapBufferDown[bar+1]!=EMPTY_VALUE && ExtMapBufferDown[bar]!=EMPTY_VALUE && high[bar]+multiple_entry_trigger_points*_Point>=ExtMapBufferDown[bar]){
+      }else if(multiple_entries && ExtMapBufferDown[bar+1]!=EMPTY_VALUE && ExtMapBufferDown[bar]!=EMPTY_VALUE && high[bar]+multiple_entry_max_offset_points*_Point>=ExtMapBufferDown[bar]){
          ExtMapBufferDown1[bar] = ExtMapBufferDown[bar];
       }      
 

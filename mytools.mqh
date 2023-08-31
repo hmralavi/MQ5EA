@@ -511,10 +511,11 @@ double calculate_today_profit(int magic_number){
    return prof;
 }
 
-void calculate_all_trades_profit_drawdown(int magic_number, double& profit, double& drawdown){
+void calculate_all_trades_profit_drawdown(int magic_number, double& profit, double& drawdown, int& total_days){
    MqlDateTime time_start, time_end;
-   TimeToStruct(TimeCurrent(), time_start);
-   TimeToStruct(TimeCurrent(), time_end);
+   datetime curr_time = TimeCurrent();
+   TimeToStruct(curr_time, time_start);
+   TimeToStruct(curr_time, time_end);
    time_start.day = 1;
    time_start.mon = 1;
    time_start.year = 2000;
@@ -530,18 +531,22 @@ void calculate_all_trades_profit_drawdown(int magic_number, double& profit, doub
 
    datetime datetime_start = StructToTime(time_start);
    datetime datetime_end = StructToTime(time_end);
+   datetime first_deal_date = 0;
 
    double prof = 0;
    double dd = 0;
+   int tdays = 0;
    HistorySelect(datetime_start, datetime_end);
    int ndeals = HistoryDealsTotal();
    for(int i=0;i<ndeals;i++){
       ulong dealticket = HistoryDealGetTicket(i);
       int magic = (int)HistoryDealGetInteger(dealticket, DEAL_MAGIC);
       if(magic != magic_number) continue;
+      if(first_deal_date == 0) first_deal_date = (datetime)HistoryDealGetInteger(dealticket, DEAL_TIME);
       prof += HistoryDealGetDouble(dealticket, DEAL_PROFIT) + HistoryDealGetDouble(dealticket, DEAL_COMMISSION) + HistoryDealGetDouble(dealticket, DEAL_FEE) + HistoryDealGetDouble(dealticket, DEAL_SWAP);
       dd = MathMin(dd, prof);
    }
+   tdays = MathCeil(float(curr_time - first_deal_date) / PeriodSeconds(PERIOD_D1));
    ulong pos_tickets[];
    GetMyPositionsTickets(magic_number, pos_tickets);
    int npos = ArraySize(pos_tickets);
@@ -552,4 +557,5 @@ void calculate_all_trades_profit_drawdown(int magic_number, double& profit, doub
    }
    profit = prof;
    drawdown = dd;
+   total_days = tdays;
 }
