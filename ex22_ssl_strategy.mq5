@@ -7,6 +7,7 @@ TODO:
    1- news ---> us to usd, add other currencies
    2- risk coefficient (increase or decrease throuoght the day)
    3- confirmation from other timeframe ssl (omid's idea)
+   4- do not trade if a good leg is already appeared in the day
 */
 
 #include <../Experts/mq5ea/mytools.mqh>
@@ -162,7 +163,7 @@ void OnTick()
          for(int inews=0;inews<nnews;inews++){
             datetime newstime = today_news.news[inews].time;
             int nminutes = (int)(TimeCurrent()-newstime)/60;
-            if((nminutes<0 && -nminutes<=stop_minutes_before_news && stop_minutes_before_news>0) || (nminutes>0 && nminutes<=stop_minutes_after_news && stop_minutes_after_news>0)){
+            if((nminutes<=0 && -nminutes<=stop_minutes_before_news && stop_minutes_before_news>0) || (nminutes>=0 && nminutes<=stop_minutes_after_news && stop_minutes_after_news>0)){
                if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0){
                   PrintFormat("%d minutes %s news `%s` with importance %d. closing the positions...", 
                               MathAbs(nminutes),nminutes>0?"after":"before",today_news.news[inews].title, today_news.news[inews].importance);

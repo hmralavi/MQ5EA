@@ -183,7 +183,7 @@ void OnTick()
          for(int inews=0;inews<nnews;inews++){
             datetime newstime = today_news.news[inews].time;
             int nminutes = (TimeCurrent()-newstime)/60;
-            if((nminutes<0 && -nminutes<=stop_minutes_before_news && stop_minutes_before_news>0) || (nminutes>0 && nminutes<=stop_minutes_after_news && stop_minutes_after_news>0)){
+            if((nminutes<=0 && -nminutes<=stop_minutes_before_news && stop_minutes_before_news>0) || (nminutes>=0 && nminutes<=stop_minutes_after_news && stop_minutes_after_news>0)){
                if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0){
                   PrintFormat("%d minutes %s news `%s` with importance %d. closing the positions...", 
                               MathAbs(nminutes),nminutes>0?"after":"before",today_news.news[inews].title, today_news.news[inews].importance);
