@@ -8,6 +8,8 @@ TODO:
    2- risk coefficient (increase or decrease throuoght the day)
    3- confirmation from other timeframe ssl (omid's idea)
    4- do not trade if a good leg is already appeared in the day
+   5- attention: stop limits make huge difference between real tick testing and 1-min-OHLC testing.
+   6- place stoploss before the last candle (omid's idea)
 */
 
 #include <../Experts/mq5ea/mytools.mqh>
@@ -76,8 +78,8 @@ CTrade trade;
 int ssl_handle, rsi_handle, ema_handle;
 ENUM_TIMEFRAMES tf;
 double risk, risk_original_modified;
-PropChallengeCriteria prop_challenge_criteria;
 CNews today_news;
+bool ignore_new_candle = false;
 
 #define SSL_UPPER_BUFFER 0
 #define SSL_LOWER_BUFFER 1
@@ -96,7 +98,7 @@ int OnInit()
    if(ema_period>0) ema_handle = iMA(_Symbol, tf, ema_period, 0, MODE_EMA, PRICE_CLOSE);
    risk = risk_original;
    risk_original_modified = risk_original;
-   prop_challenge_criteria = PropChallengeCriteria(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, MONTH_ALL, Magic);
+   ignore_new_candle = false;
    return(INIT_SUCCEEDED);
 }
 
@@ -210,14 +212,14 @@ void OnTick()
       }
    }   
    
-   if(!IsNewCandle(tf, 1)) return;
+   if(!IsNewCandle(tf, 5) && !ignore_new_candle) return;
    
    bool ssl_buy = get_ssl_buy(1);
    bool ssl_sell = get_ssl_sell(1);
    double ssl_upper = get_ssl_upper(1);
    double ssl_lower = get_ssl_lower(1);
    
-   if(ssl_buy || ssl_sell){
+   if((ssl_buy || ssl_sell) && (ArraySize(pos_tickets)+ArraySize(ord_tickets)>0)){
       DeleteAllOrders(trade);
       if(multiple_entry_offset_points>0){
          if(ssl_upper==EMPTY_VALUE && ssl_lower!=EMPTY_VALUE) run_early_exit_policy(1); // close only buy positions
@@ -225,6 +227,7 @@ void OnTick()
       }else{
          run_early_exit_policy(0);
       }
+      ignore_new_candle = true;
    }
     
    ArrayResize(pos_tickets, 0);
@@ -232,11 +235,22 @@ void OnTick()
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
    if(multiple_entry_offset_points>0){
-      if(!AllPositionsRiskfreed()) return;
+      if(!AllPositionsRiskfreed()){
+         Print(__LINE__ + ": returned!!!!!!!!!!!!!!!!!!");
+         return;
+      }
    }else{
-      if(ArraySize(pos_tickets)>0) return;
+      if(ArraySize(pos_tickets)>0){
+         Print(__LINE__ + ": returned!!!!!!!!!!!!!!!!!!");
+         return;
+      }
    }
-   if(ArraySize(ord_tickets)>0) return;
+   if(ArraySize(ord_tickets)>0){
+         Print(__LINE__ + ": returned!!!!!!!!!!!!!!!!!!");
+         return;
+   }
+   
+   ignore_new_candle = false;
    
    if(!is_session_time_allowed_double(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
 
