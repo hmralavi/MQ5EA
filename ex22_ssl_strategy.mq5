@@ -219,7 +219,9 @@ void OnTick()
    double ssl_upper = get_ssl_upper(1);
    double ssl_lower = get_ssl_lower(1);
    
-   if((ssl_buy || ssl_sell) && (ArraySize(pos_tickets)+ArraySize(ord_tickets)>0)){
+   if(!ssl_buy && !ssl_sell) return;
+   
+   if((ArraySize(pos_tickets)+ArraySize(ord_tickets))>0){
       DeleteAllOrders(trade);
       if(multiple_entry_offset_points>0){
          if(ssl_upper==EMPTY_VALUE && ssl_lower!=EMPTY_VALUE) run_early_exit_policy(1); // close only buy positions
