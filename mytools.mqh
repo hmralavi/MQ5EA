@@ -197,6 +197,7 @@ void TrailingStoploss(CTrade& trade_, ulong pos_ticket, double slpoints, double 
       if(new_sl > open_price) return;
    }
    new_sl = NormalizeDouble(new_sl, _Digits);
+   if(new_sl == current_sl) return;
    trade_.PositionModify(pos_ticket, new_sl, current_tp);
 }
 
