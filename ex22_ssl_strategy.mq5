@@ -5,22 +5,26 @@ Strategy:
 
 TODO:
    1- news ---> us to usd, add other currencies
-   2- risk coefficient (increase or decrease throuoght the day)
-   3- confirmation from other timeframe ssl (omid's idea)
+   2- risk coefficient (increase or decrease throuoght the day) ---> DONE
+   3- confirmation from other timeframe ssl (omid's idea) ----> DONE
    4- do not trade if a good leg is already appeared in the day
    5- attention: stop limits make huge difference between real tick testing and 1-min-OHLC testing.
-   6- place stoploss before the last candle (omid's idea)
+   6- place stoploss before the last candle (omid's idea) ----> DONE
 */
 
 #include <../Experts/mq5ea/mytools.mqh>
 #include <../Experts/mq5ea/prop_challenge_tools.mqh>
 #include <../Experts/mq5ea/mycalendar.mqh>
 
-enum ENUM_EARLY_EXIT_POLICY{
-   EARLY_EXIT_POLICY_BREAKEVEN_NOTHING = 0,  // BE in loss/nothing in profit
-   EARLY_EXIT_POLICY_BREAKEVEN_INSTANT = 1,  // BE in loss/instant exit in profit
-   EARLY_EXIT_POLICY_INSTANT_NOTHING = 2,  // instant exit in loss/nothing in profit
-   EARLY_EXIT_POLICY_INSTANT_INSTANT = 3  // instant exit in loss/instant exit in profit
+enum ENUM_IN_LOSS_SSL_CHANGED_POLICY{
+   IN_LOSS_SSL_CHANGED_POLICY_NOTHING = 0,  // do nothing
+   IN_LOSS_SSL_CHANGED_POLICY_BREAKEVEN = 1,  // breakeven
+   IN_LOSS_SSL_CHANGED_POLICY_INSTANT = 2,  // instant exit
+};
+
+enum ENUM_IN_PROFIT_SSL_CHANGED_POLICY{
+   IN_PROFIT_SSL_CHANGED_POLICY_NOTHING = 0, // do nothing
+   IN_PROFIT_SSL_CHANGED_POLICY_INSTANT = 1  // instant exit
 };
 
 input group "Time settings"
@@ -31,10 +35,21 @@ input double session_start_hour = 5.0;          // session start hour (server ti
 input double session_end_hour = 13.0;           // session end hour (server time)
 input double terminate_hour = 0.0;              // terminate all positions/orders hour (set 0 to disable)
 
-input group "Indicator settings"
+input group "Main SSL settings"
 input int ssl_period = 14; // SSL period
 input int min_ssl_breaking_points = 0;  // minimum points to consider SSL is broken
+
+input group "SSL confirmation"
+input int cnfrm_ssl_period = 0;  // confirmation SSL period (set 0 to disable)
+input ENUM_CUSTOM_TIMEFRAMES cnfrm_ssl_tf = CUSTOM_TIMEFRAMES_M15;  // confirmation SSL timeframe
+input int cnfrm_ssl_min_breaking_points = 0;  // minimum points to consider SSL is broken
+input int cnfrm_ssl_min_length = 0;  // minimum SSL length (candles)
+input int cnfrm_ssl_max_length = 5;  // maximum SSL length (candles)
+
+input group "EMA confirmation"
 input int ema_period = 0; // EMA period for confirmation (set 0 to disable)
+
+input group "RSI confirmation"
 input int rsi_period = 0; // RSI period for confirmation (set 0 to disable)
 input int rsi_divergence_valid_ncandles = 5;  // number of candles that a divergence remains valid
 input int rsi_divergence_ncandles_peak = 1;  // number of candles to detect peak for RSI divergence
@@ -48,12 +63,14 @@ input int multiple_entry_offset_points = 0;  // multiple entry: max offset point
 input double risk_original = 100;  // risk usd per trade
 input double risk_modification_factor = 1; // daily risk modification factor
 input double Rr = 0.0; // reward/risk ratio (set 0 to disable tp)
-input int sl_offset_points = 0;  // sl offset points from ssl
+input double sl_level_ratio = 0;  // sl level ratio (0 on ssl, 1 on open price)
+input int sl_offset_points = 0;  // sl offset points
 input int sl_min_points = 0;  // sl min points (set 0 to ignore)
 input int sl_max_points = 0;  // sl max points (set 0 to ignore)
 input int tsl_offset_points = 0;  //TSL offset points from ssl (set 0 to disable)
 input double riskfree_ratio = 0.0;  // RiskFree (proportion of SL) (set 0 to disable)
-input ENUM_EARLY_EXIT_POLICY early_exit_policy = EARLY_EXIT_POLICY_BREAKEVEN_NOTHING;  // how exit position when trend changes?
+input ENUM_IN_PROFIT_SSL_CHANGED_POLICY in_profit_exit_policy = IN_PROFIT_SSL_CHANGED_POLICY_NOTHING;  // What to do when SSL trend changes in profit?
+input ENUM_IN_LOSS_SSL_CHANGED_POLICY in_loss_exit_policy = IN_LOSS_SSL_CHANGED_POLICY_NOTHING;  // What to do when SSL trend changes in loss?
 
 input group "Settings for prop challenge report"
 input double prop_challenge_min_profit_usd = 800; // Profit (usd)
@@ -75,7 +92,7 @@ input string country_name = "US";
 input string important_news = MY_IMPORTANT_NEWS;
 
 CTrade trade;
-int ssl_handle, rsi_handle, ema_handle;
+int ssl_handle, cnfrm_ssl_handle, rsi_handle, ema_handle;
 ENUM_TIMEFRAMES tf;
 double risk, risk_original_modified;
 CNews today_news;
@@ -85,6 +102,7 @@ bool ignore_new_candle = false;
 #define SSL_LOWER_BUFFER 1
 #define SSL_BUY_BUFFER 2
 #define SSL_SELL_BUFFER 3
+#define SSL_CURRENT_LENGTH_BUFFER 6
 
 int OnInit()
 {
@@ -92,8 +110,9 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    if(use_custom_timeframe) tf = convert_tf(custom_timeframe);
    else tf = _Period;
-   ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", ssl_period, true, min_ssl_breaking_points, multiple_entry_offset_points>0, multiple_entry_offset_points, 5, true, 0, 1);
+   ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", ssl_period, true, min_ssl_breaking_points, multiple_entry_offset_points>0, multiple_entry_offset_points, 0, false, 0, 1);
    ChartIndicatorAdd(0, 0, ssl_handle);
+   if(cnfrm_ssl_period>0) cnfrm_ssl_handle = iCustom(_Symbol, convert_tf(cnfrm_ssl_tf), "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", cnfrm_ssl_period, true, cnfrm_ssl_min_breaking_points, false, 0, 0, false, 0, 1);
    if(rsi_period>0) rsi_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\HARSI.ex5", rsi_period, 7, PRICE_TYPICAL, rsi_period, true, rsi_divergence_ncandles_peak, 0, 0, 40, rsi_divergence_npeaks, false, false);
    if(ema_period>0) ema_handle = iMA(_Symbol, tf, ema_period, 0, MODE_EMA, PRICE_CLOSE);
    risk = risk_original;
@@ -256,10 +275,11 @@ void OnTick()
    
    if(!is_session_time_allowed_double(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
 
-   if(ssl_buy && rsi_confirmed(true) && ema_confirmed(true)){  // enter buy
+   if(ssl_buy && ssl_confirmed(true) && rsi_confirmed(true) && ema_confirmed(true)){  // enter buy
       double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       if(stop_limit_offset_points>0) p = MathMax(iHigh(_Symbol, tf, 1), p) + stop_limit_offset_points*_Point;
-      double sl = MathMin(ssl_upper, iLow(_Symbol, tf, 1)) - sl_offset_points*_Point;
+      double sl = MathMin(ssl_upper, iLow(_Symbol, tf, 1));
+      sl = sl + (p-sl)*sl_level_ratio - sl_offset_points*_Point;
       if(p<sl) return;
       if((sl_min_points>0 && (p-sl)<sl_min_points*_Point) || (sl_max_points>0 && (p-sl)>sl_max_points*_Point)) return;
       double lot_size = normalize_volume(calculate_lot_size((p-sl)/_Point, risk));
@@ -270,10 +290,11 @@ void OnTick()
       tp = NormalizeDouble(tp, _Digits);
       if(stop_limit_offset_points>0) trade.BuyStop(lot_size, p, _Symbol, sl, tp, ORDER_TIME_GTC, 0, PositionComment);
       else trade.Buy(lot_size, _Symbol, p, sl, tp, PositionComment);
-   }else if(ssl_sell && rsi_confirmed(false) && ema_confirmed(false)){  // enter sell
-      double p = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   }else if(ssl_sell && ssl_confirmed(false) && rsi_confirmed(false) && ema_confirmed(false)){  // enter sell
+      double p = SymbolInfoDouble(_Symbol, SYMBOL_BID);      
       if(stop_limit_offset_points>0) p = MathMin(iLow(_Symbol, tf, 1), p) - stop_limit_offset_points*_Point;
-      double sl = MathMax(ssl_lower, iHigh(_Symbol, tf, 1)) + sl_offset_points*_Point;
+      double sl = MathMax(ssl_lower, iHigh(_Symbol, tf, 1));
+      sl = sl + (p-sl)*sl_level_ratio + sl_offset_points*_Point;;
       if(p>sl) return;
       if((sl_min_points>0 && (sl-p)<sl_min_points*_Point) || (sl_max_points>0 && (sl-p)>sl_max_points*_Point)) return;
       double lot_size = normalize_volume(calculate_lot_size((sl-p)/_Point, risk));
@@ -312,6 +333,18 @@ bool get_ssl_sell(int shift=0){
    return val[0]==EMPTY_VALUE?false:true;
 }
 
+bool ssl_confirmed(bool buy_or_sell){
+   if(cnfrm_ssl_period<=0) return true;
+   double upper[1], length[1];
+   int shift = 0;
+   CopyBuffer(cnfrm_ssl_handle, SSL_UPPER_BUFFER, shift, 1, upper);
+   CopyBuffer(cnfrm_ssl_handle, SSL_CURRENT_LENGTH_BUFFER, shift, 1, length);
+   bool cnfrm_buy_or_sell = upper[0]==EMPTY_VALUE?false:true;
+   if(cnfrm_buy_or_sell != buy_or_sell) return false;
+   if(length[0]>=cnfrm_ssl_min_length && length[0]<=cnfrm_ssl_max_length) return true;
+   return false;
+}
+
 bool rsi_confirmed(bool buy_or_sell){
    if(rsi_period<=0) return true;
    double rsival[], bullish_divergence[], bearish_divergence[];
@@ -339,29 +372,25 @@ bool ema_confirmed(bool buy_or_sell){
 }
 
 void run_early_exit_policy(int which_positions_type){ // which_positions_type: 0:all, 1:buys only, 2:sell only
-   if(early_exit_policy==EARLY_EXIT_POLICY_INSTANT_INSTANT){
-      CloseAllPositions(trade, which_positions_type);
-   }else{
-      ulong pos_tickets[];
-      GetMyPositionsTickets(Magic, pos_tickets);
-      int npos = ArraySize(pos_tickets);
-      for(int ipos=0;ipos<npos;ipos++){
-         PositionSelectByTicket(pos_tickets[ipos]);
-         ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
-         if((which_positions_type==1 && pos_type==POSITION_TYPE_SELL) || (which_positions_type==2 && pos_type==POSITION_TYPE_BUY)) continue;
-         double current_profit = PositionGetDouble(POSITION_PROFIT);
-         if(current_profit>=0){
-            if(early_exit_policy==EARLY_EXIT_POLICY_BREAKEVEN_INSTANT) trade.PositionClose(pos_tickets[ipos]);
-            continue;
-         }else if(current_profit<0 && early_exit_policy==EARLY_EXIT_POLICY_INSTANT_NOTHING){
-            trade.PositionClose(pos_tickets[ipos]);
-            continue;            
+   ulong pos_tickets[];
+   GetMyPositionsTickets(Magic, pos_tickets);
+   int npos = ArraySize(pos_tickets);
+   for(int ipos=0;ipos<npos;ipos++){
+      PositionSelectByTicket(pos_tickets[ipos]);
+      ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      if((which_positions_type==1 && pos_type==POSITION_TYPE_SELL) || (which_positions_type==2 && pos_type==POSITION_TYPE_BUY)) continue;
+      double current_profit = PositionGetDouble(POSITION_PROFIT);
+      if(current_profit>=0){
+         if(in_profit_exit_policy==IN_PROFIT_SSL_CHANGED_POLICY_INSTANT) trade.PositionClose(pos_tickets[ipos]);
+      }else if(current_profit<0){
+         if(in_loss_exit_policy==IN_LOSS_SSL_CHANGED_POLICY_INSTANT) trade.PositionClose(pos_tickets[ipos]);
+         else if(in_loss_exit_policy==IN_LOSS_SSL_CHANGED_POLICY_BREAKEVEN){
+            double current_sl = PositionGetDouble(POSITION_SL);
+            double current_tp = PositionGetDouble(POSITION_TP);
+            double open_price = PositionGetDouble(POSITION_PRICE_OPEN);         
+            if(pos_type==POSITION_TYPE_BUY && current_sl<open_price && (current_tp>open_price || current_tp==0)) trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
+            else if(pos_type==POSITION_TYPE_SELL && current_sl>open_price && (current_tp<open_price || current_tp==0)) trade.PositionModify(pos_tickets[ipos], current_sl, open_price); 
          }
-         double current_sl = PositionGetDouble(POSITION_SL);
-         double current_tp = PositionGetDouble(POSITION_TP);
-         double open_price = PositionGetDouble(POSITION_PRICE_OPEN);         
-         if(pos_type==POSITION_TYPE_BUY && current_sl<open_price && (current_tp>open_price || current_tp==0)) trade.PositionModify(pos_tickets[ipos], current_sl, open_price);
-         else if(pos_type==POSITION_TYPE_SELL && current_sl>open_price && (current_tp<open_price || current_tp==0)) trade.PositionModify(pos_tickets[ipos], current_sl, open_price);            
       }
    }
 }
