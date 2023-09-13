@@ -191,8 +191,8 @@ int buy_or_sell_signal(){ // 0: nothing, 1:buy, 2:sell
       if(rsi[1]>0 && p>fema[0] && p>sema[0] && fema[0]>sema[0] && hac[0]>hao[0]) return 1;
       if(rsi[1]<0 && p<fema[0] && p<sema[0] && fema[0]<sema[0] && hac[0]<hao[0]) return 2;
    }else if(rsi_rule==RSI_RULE_BREAK){
-      if(rsi[1]>0 && rsi[0]<0 && p>fema[0] && p>sema[0] && fema[0]>sema[0] && hac[0]>hao[0]) return 1;
-      if(rsi[1]<0 && rsi[0]>0 && p<fema[0] && p<sema[0] && fema[0]<sema[0] && hac[0]<hao[0]) return 2;
+      if(rsi[1]>0 && rsi[0]<0 && p>fema[0] && fema[0]>sema[0] && hac[0]>hao[0]) return 1;
+      if(rsi[1]<0 && rsi[0]>0 && p<fema[0] && fema[0]<sema[0] && hac[0]<hao[0]) return 2;
    }
    return 0;   
 }
