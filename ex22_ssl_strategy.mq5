@@ -28,8 +28,7 @@ enum ENUM_IN_PROFIT_SSL_CHANGED_POLICY{
 };
 
 input group "Time settings"
-input bool use_custom_timeframe = false;
-input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_M5;
+input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_M5;  // Time Frame
 input bool trade_only_in_session_time = false;  // entries only in specific session time of the day
 input double session_start_hour = 5.0;          // session start hour (server time)
 input double session_end_hour = 13.0;           // session end hour (server time)
@@ -108,8 +107,7 @@ int OnInit()
 {
    trade.SetExpertMagicNumber(Magic);
    trade.LogLevel(LOG_LEVEL_NO);
-   if(use_custom_timeframe) tf = convert_tf(custom_timeframe);
-   else tf = _Period;
+   tf = convert_tf(custom_timeframe);
    ssl_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", ssl_period, true, min_ssl_breaking_points, multiple_entry_offset_points>0, multiple_entry_offset_points, 0, false, 0, 1);
    ChartIndicatorAdd(0, 0, ssl_handle);
    if(cnfrm_ssl_period>0) cnfrm_ssl_handle = iCustom(_Symbol, convert_tf(cnfrm_ssl_tf), "..\\Experts\\mq5ea\\indicators\\SSL_NEW.ex5", cnfrm_ssl_period, true, cnfrm_ssl_min_breaking_points, false, 0, 0, false, 0, 1);
