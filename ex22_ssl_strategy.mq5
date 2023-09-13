@@ -33,6 +33,7 @@ input bool trade_only_in_session_time = false;  // entries only in specific sess
 input double session_start_hour = 5.0;          // session start hour (server time)
 input double session_end_hour = 13.0;           // session end hour (server time)
 input double terminate_hour = 0.0;              // terminate all positions/orders hour (set 0 to disable)
+input bool no_trade_weekend = false;  // no trade on weekend (fri)
 
 input group "Main SSL settings"
 input int ssl_period = 14; // SSL period
@@ -93,7 +94,7 @@ input string important_news = MY_IMPORTANT_NEWS;
 CTrade trade;
 int ssl_handle, cnfrm_ssl_handle, rsi_handle, ema_handle;
 ENUM_TIMEFRAMES tf;
-double risk, risk_original_modified;
+double risk;
 CNews today_news;
 bool ignore_new_candle = false;
 
@@ -114,7 +115,6 @@ int OnInit()
    if(rsi_period>0) rsi_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\HARSI.ex5", rsi_period, 7, PRICE_TYPICAL, rsi_period, true, rsi_divergence_ncandles_peak, 0, 0, 40, rsi_divergence_npeaks, false, false);
    if(ema_period>0) ema_handle = iMA(_Symbol, tf, ema_period, 0, MODE_EMA, PRICE_CLOSE);
    risk = risk_original;
-   risk_original_modified = risk_original;
    ignore_new_candle = false;
    return(INIT_SUCCEEDED);
 }
@@ -147,12 +147,10 @@ void OnTick()
       }
    }
    
-   update_risk_original_modified();
-   
    double ea_today_profit;
    vector<double> all_risks = vector::Zeros(3);
    ea_today_profit = calculate_today_profit(Magic);
-   all_risks[0] = risk_original_modified;
+   all_risks[0] = risk_original_modified();
    all_risks[1] = ea_today_profit+max_daily_loss_allowed;
    all_risks[2] = max_daily_profit_allowed-ea_today_profit;
    risk = MathMax(all_risks.Min(), 0);
@@ -254,24 +252,16 @@ void OnTick()
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
    if(multiple_entry_offset_points>0){
-      if(!AllPositionsRiskfreed()){
-         Print(__LINE__ + ": returned!!!!!!!!!!!!!!!!!!");
-         return;
-      }
+      if(!AllPositionsRiskfreed()) return;
    }else{
-      if(ArraySize(pos_tickets)>0){
-         Print(__LINE__ + ": returned!!!!!!!!!!!!!!!!!!");
-         return;
-      }
+      if(ArraySize(pos_tickets)>0) return;
    }
-   if(ArraySize(ord_tickets)>0){
-         Print(__LINE__ + ": returned!!!!!!!!!!!!!!!!!!");
-         return;
-   }
+   if(ArraySize(ord_tickets)>0) return;
    
    ignore_new_candle = false;
    
    if(!is_session_time_allowed_double(session_start_hour, session_end_hour) && trade_only_in_session_time) return;
+   if(is_weekend() && no_trade_weekend) return;
 
    if(ssl_buy && ssl_confirmed(true) && rsi_confirmed(true) && ema_confirmed(true)){  // enter buy
       double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -410,7 +400,7 @@ bool AllPositionsRiskfreed(void){  // checks if all current position are risk fr
    return result;
 }
 
-void update_risk_original_modified(void){
+double risk_original_modified(void){
    MqlDateTime time_start, time_end;
    TimeToStruct(TimeCurrent(), time_start);
    TimeToStruct(TimeCurrent(), time_end);
@@ -435,7 +425,13 @@ void update_risk_original_modified(void){
       if(entry_type == DEAL_ENTRY_IN) eadeals++;
    }
    double coef = MathPow(risk_modification_factor, eadeals);
-   risk_original_modified = risk_original * coef; 
+   return risk_original * coef; 
+}
+
+bool is_weekend(void){
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   return dt.day_of_week==5;
 }
 
 double OnTester(void){
