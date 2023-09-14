@@ -1,4 +1,3 @@
-#define FILE_NAME "news/mynewshistory.bin"
 #define MY_IMPORTANT_NEWS "CPI;Interest;Nonfarm;Unemployment;Employment;Jobless Claims;GDP;NFP;PMI;Retail Sale;Empire State Manufacturing;Fed Chair"
 
 struct MyNewsStruct{ 
@@ -144,13 +143,18 @@ void CNews::CNews(datetime date_from_, datetime date_to_, string country_name_="
 
 
 void CNews::read_file(void){
+   MqlDateTime datefromstruct;
+   TimeToStruct(date_from, datefromstruct);
+   string filename = StringFormat("news/%4d%02d", datefromstruct.year, datefromstruct.mon);
    int filehandle;
-   if (FileIsExist(FILE_NAME,FILE_COMMON)){
-      filehandle=FileOpen(FILE_NAME,FILE_READ|FILE_COMMON|FILE_BIN|FILE_SHARE_READ);
+   if (FileIsExist(filename,FILE_COMMON)){
+      filehandle=FileOpen(filename,FILE_READ|FILE_COMMON|FILE_BIN|FILE_SHARE_READ);
       FileSeek(filehandle,0,SEEK_SET);
-      if (filehandle==INVALID_HANDLE){
-         Print(__FUNCTION__,": can't open previous news history file; invalid file handle");
+      if(filehandle==INVALID_HANDLE){
+         Print(__FUNCTION__,": can't open news file ", filename);
          return;
+      }else{
+         Print(__FUNCTION__,": reading news file ", filename);
       }
     
       int n=0;

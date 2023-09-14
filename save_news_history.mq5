@@ -4,10 +4,6 @@ datetime date_from=D'01.01.2015 00:00';
 datetime date_to=D'31.12.2023 23:59';
 
 void OnStart(){
-   int filehandle;
-   filehandle=FileOpen(FILE_NAME,FILE_WRITE|FILE_COMMON|FILE_BIN);
-   if(filehandle!=INVALID_HANDLE) Print(__FUNCTION__,": creating new file ", FILE_NAME);
-   
    MqlCalendarValue eventvaluebuffer[];ZeroMemory(eventvaluebuffer);
    CalendarValueHistory(eventvaluebuffer,date_from,date_to);
    
@@ -43,15 +39,22 @@ void OnStart(){
       if (event.event_type!=CALENDAR_TYPE_HOLIDAY &&           // ignore holiday events
          event.timemode==CALENDAR_TIMEMODE_DATETIME)           // only events with exactly published time
         {
+         MqlDateTime eventdate;
+         TimeToStruct(event.time, eventdate);
+         string filename = StringFormat("news/%4d%02d", eventdate.year, eventdate.mon);
+         int filehandle;
+         filehandle=FileOpen(filename,FILE_READ|FILE_WRITE|FILE_COMMON|FILE_BIN);
+         if(filehandle!=INVALID_HANDLE) Print(__FUNCTION__,": writing news to file ", filename);
+         else Print(__FUNCTION__,": cannot open file ", filename);
+         FileSeek(filehandle,0,SEEK_END);
          FileWriteStruct(filehandle,event);
          int length=StringLen(eventbuffer.name);
          FileWriteInteger(filehandle,length,INT_VALUE);
          FileWriteString(filehandle,eventbuffer.name,length);
-         saved_elements++; 
+         FileClose(filehandle);
+         saved_elements++;
         }
      }
-     
-     FileClose(filehandle);
      Print(__FUNCTION__,": ",number_of_events," total events found, ",saved_elements,
       " events saved (holiday events and events without exact published time are ignored)");
 }
