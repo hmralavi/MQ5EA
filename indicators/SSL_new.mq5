@@ -1,6 +1,6 @@
 #property indicator_chart_window
-#property indicator_buffers 8
-#property indicator_plots   8
+#property indicator_buffers 9
+#property indicator_plots   9
 
 #property indicator_type1   DRAW_LINE
 #property indicator_color1  clrBlue
@@ -25,18 +25,21 @@
 #property indicator_type5   DRAW_ARROW
 #property indicator_color5  clrYellow
 #property indicator_width5  4
-#property indicator_label5  "SSL Trend length Avg"
+#property indicator_label5  "SSL Trend length Avg Point"
 
 #property indicator_type6   DRAW_LINE
 #property indicator_color6  clrGreen
 #property indicator_width6  2
-#property indicator_label6  "SSL Trend length STD"
+#property indicator_label6  "SSL Trend length STD Line"
 
 #property indicator_type7 DRAW_NONE
 #property indicator_label7    "SSL Current Trend Length"
 
 #property indicator_type8 DRAW_NONE
-#property indicator_label8    "SSL Average Trend Length"
+#property indicator_label8    "SSL Trend Length Avg"
+
+#property indicator_type9 DRAW_NONE
+#property indicator_label9    "SSL Trend length STD"
 
 input int   period=13;           // Moving averages period;
 input bool   NRTR=true;           // NRTR
@@ -52,10 +55,11 @@ double ExtMapBufferUp[];
 double ExtMapBufferDown[];
 double ExtMapBufferUp1[];
 double ExtMapBufferDown1[];
+double ExtTrendLengthAvgPoint[];
+double ExtTrendLengthStdLine[];
+double ExtCurrentTrendLength[];
 double ExtTrendLengthAvg[];
 double ExtTrendLengthStd[];
-double ExtCurrentTrendLength[];
-double ExtAverageTrendLength[];
 
 #define RESET  0 // The constant for returning the indicator recalculation command to the terminal
 
@@ -101,21 +105,24 @@ int OnInit()
    ArraySetAsSeries(ExtMapBufferDown1,true);
    PlotIndexSetDouble(3,PLOT_EMPTY_VALUE,EMPTY_VALUE);
    
-   SetIndexBuffer(4,ExtTrendLengthAvg,INDICATOR_DATA);
+   SetIndexBuffer(4,ExtTrendLengthAvgPoint,INDICATOR_DATA);
    PlotIndexSetInteger(4,PLOT_DRAW_BEGIN,min_rates_total);
-   ArraySetAsSeries(ExtTrendLengthAvg,true);
+   ArraySetAsSeries(ExtTrendLengthAvgPoint,true);
    PlotIndexSetDouble(4,PLOT_EMPTY_VALUE,EMPTY_VALUE);
    
-   SetIndexBuffer(5,ExtTrendLengthStd,INDICATOR_DATA);
+   SetIndexBuffer(5,ExtTrendLengthStdLine,INDICATOR_DATA);
    PlotIndexSetInteger(5,PLOT_DRAW_BEGIN,min_rates_total);
-   ArraySetAsSeries(ExtTrendLengthStd,true);
+   ArraySetAsSeries(ExtTrendLengthStdLine,true);
    PlotIndexSetDouble(5,PLOT_EMPTY_VALUE,EMPTY_VALUE);
    
    SetIndexBuffer(6,ExtCurrentTrendLength,INDICATOR_DATA);
    ArraySetAsSeries(ExtCurrentTrendLength,true);
    
-   SetIndexBuffer(7,ExtAverageTrendLength,INDICATOR_DATA);
-   ArraySetAsSeries(ExtAverageTrendLength,true);
+   SetIndexBuffer(7,ExtTrendLengthAvg,INDICATOR_DATA);
+   ArraySetAsSeries(ExtTrendLengthAvg,true);
+   
+   SetIndexBuffer(8,ExtTrendLengthStd,INDICATOR_DATA);
+   ArraySetAsSeries(ExtTrendLengthStd,true);
 
    string shortname;
    StringConcatenate(shortname,"SSL(",period,")");
@@ -179,8 +186,8 @@ int OnCalculate(const int rates_total,    // amount of history in bars at the cu
       ExtMapBufferDown[bar]=EMPTY_VALUE;
       ExtMapBufferUp1[bar]=EMPTY_VALUE;
       ExtMapBufferDown1[bar]=EMPTY_VALUE;
-      ExtTrendLengthAvg[bar]=EMPTY_VALUE;
-      ExtTrendLengthStd[bar]=EMPTY_VALUE;
+      ExtTrendLengthAvgPoint[bar]=EMPTY_VALUE;
+      ExtTrendLengthStdLine[bar]=EMPTY_VALUE;
       ExtCurrentTrendLength[bar] = ExtCurrentTrendLength[bar+1] + 1;
 
       if(close[bar]-min_breaking_points*_Point>=HMA[bar+1]) Hld=+1;
@@ -240,14 +247,15 @@ int OnCalculate(const int rates_total,    // amount of history in bars at the cu
       
       double lengthmean = ncandles.Mean();
       double lengthstd = ncandles.Std();
-      ExtAverageTrendLength[bar] = lengthmean;
+      ExtTrendLengthAvg[bar] = lengthmean;
+      ExtTrendLengthStd[bar] = lengthstd;
       if(ExtCurrentTrendLength[bar]>1 && (ExtCurrentTrendLength[bar]<=lengthmean + trend_length_pass_factor*lengthstd) && (ExtCurrentTrendLength[bar]>=lengthmean - trend_length_pass_factor*lengthstd)){
-         if(ExtMapBufferDown[bar]!=EMPTY_VALUE) ExtTrendLengthStd[bar]=ExtMapBufferDown[bar]+10*_Point;
-         if(ExtMapBufferUp[bar]!=EMPTY_VALUE) ExtTrendLengthStd[bar]=ExtMapBufferUp[bar]-10*_Point;
+         if(ExtMapBufferDown[bar]!=EMPTY_VALUE) ExtTrendLengthStdLine[bar]=ExtMapBufferDown[bar]+10*_Point;
+         if(ExtMapBufferUp[bar]!=EMPTY_VALUE) ExtTrendLengthStdLine[bar]=ExtMapBufferUp[bar]-10*_Point;
       }   
       if((ExtCurrentTrendLength[bar]<=lengthmean + 0.5) && (ExtCurrentTrendLength[bar]>=lengthmean - 0.5)){
-         if(ExtMapBufferDown[bar]!=EMPTY_VALUE) ExtTrendLengthAvg[bar]=ExtMapBufferDown[bar]+10*_Point;
-         if(ExtMapBufferUp[bar]!=EMPTY_VALUE) ExtTrendLengthAvg[bar]=ExtMapBufferUp[bar]-10*_Point;
+         if(ExtMapBufferDown[bar]!=EMPTY_VALUE) ExtTrendLengthAvgPoint[bar]=ExtMapBufferDown[bar]+10*_Point;
+         if(ExtMapBufferUp[bar]!=EMPTY_VALUE) ExtTrendLengthAvgPoint[bar]=ExtMapBufferUp[bar]-10*_Point;
       }
                 
      }
