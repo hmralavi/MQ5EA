@@ -88,6 +88,7 @@ input int Magic = 220;  // EA's magic number
 input group "News Handling"
 input int stop_minutes_before_news = 0;
 input int stop_minutes_after_news = 0;
+input int backtesting_news_time_shift_minutes = 0;
 
 CTrade trade;
 int ssl_handle, cnfrm_ssl_handle, rsi_handle, ema_handle;
@@ -176,7 +177,7 @@ void OnTick()
       int nnews = ArraySize(today_news.news);
       if(nnews>0){
          for(int inews=0;inews<nnews;inews++){
-            datetime newstime = today_news.news[inews].time;
+            datetime newstime = today_news.news[inews].time + backtesting_news_time_shift_minutes*60;
             int nminutes = (int)(TimeCurrent()-newstime)/60;
             if((nminutes<=0 && -nminutes<=stop_minutes_before_news && stop_minutes_before_news>0) || (nminutes>=0 && nminutes<=stop_minutes_after_news && stop_minutes_after_news>0)){
                if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0){

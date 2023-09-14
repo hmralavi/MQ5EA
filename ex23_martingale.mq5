@@ -57,6 +57,7 @@ input int suspend_minutes_before_news = 0;
 input int suspend_minutes_after_news = 0;
 input int no_cycle_minutes_before_news = 0;
 input int no_cycle_minutes_after_news = 0;
+input int backtesting_news_time_shift_minutes = 0;
 
 CTrade trade;
 int harsi_handle, fast_ema_handle, slow_ema_handle;
@@ -129,7 +130,7 @@ void OnTick()
       int nnews = ArraySize(today_news.news);
       if(nnews>0){
          for(int inews=0;inews<nnews;inews++){
-            datetime newstime = today_news.news[inews].time;
+            datetime newstime = today_news.news[inews].time + backtesting_news_time_shift_minutes*60;
             int nminutes = (int)(TimeCurrent()-newstime)/60;
             if((nminutes<=0 && -nminutes<=suspend_minutes_before_news && suspend_minutes_before_news>0) || (nminutes>=0 && nminutes<=suspend_minutes_after_news && suspend_minutes_after_news>0)) return;
             if((nminutes<=0 && -nminutes<=no_cycle_minutes_before_news && no_cycle_minutes_before_news>0) || (nminutes>=0 && nminutes<=no_cycle_minutes_after_news && no_cycle_minutes_after_news>0)){
