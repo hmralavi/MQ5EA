@@ -86,8 +86,10 @@ input string PositionComment = "";
 input int Magic = 220;  // EA's magic number
 
 input group "News Handling"
-input int stop_minutes_before_news = 0;
-input int stop_minutes_after_news = 0;
+input int no_new_position_before_news_minutes = 0;
+input int no_new_position_after_news_minutes = 0;
+input int close_positions_before_news_minutes = 0;
+input int close_positions_after_news_minutes = 0;
 input int backtesting_news_time_shift_minutes = 0;
 
 CTrade trade;
@@ -172,14 +174,14 @@ void OnTick()
    GetMyPositionsTickets(Magic, pos_tickets);
    GetMyOrdersTickets(Magic, ord_tickets);
    
-   if(stop_minutes_before_news>0 || stop_minutes_after_news>0){
+   if(no_new_position_after_news_minutes>0 || no_new_position_before_news_minutes>0 || close_positions_after_news_minutes>0 || close_positions_before_news_minutes>0){
       update_news();
       int nnews = ArraySize(today_news.news);
       if(nnews>0){
          for(int inews=0;inews<nnews;inews++){
             datetime newstime = today_news.news[inews].time + backtesting_news_time_shift_minutes*60;
             int nminutes = (int)(TimeCurrent()-newstime)/60;
-            if((nminutes<=0 && -nminutes<=stop_minutes_before_news && stop_minutes_before_news>0) || (nminutes>=0 && nminutes<=stop_minutes_after_news && stop_minutes_after_news>0)){
+            if((nminutes<=0 && -nminutes<=close_positions_before_news_minutes && close_positions_before_news_minutes>0) || (nminutes>=0 && nminutes<=close_positions_after_news_minutes && close_positions_after_news_minutes>0)){
                if(ArraySize(pos_tickets)+ArraySize(ord_tickets)>0){
                   PrintFormat("%d minutes %s news `%s` with importance %d. closing the positions...", 
                               MathAbs(nminutes),nminutes>0?"after":"before",today_news.news[inews].title, today_news.news[inews].importance);
@@ -188,6 +190,7 @@ void OnTick()
                }
                return;
             }
+            if((nminutes<=0 && -nminutes<=no_new_position_before_news_minutes && no_new_position_before_news_minutes>0) || (nminutes>=0 && nminutes<=no_new_position_after_news_minutes && no_new_position_after_news_minutes>0)) return;
          }
       }
    }
@@ -202,9 +205,11 @@ void OnTick()
          double curr_price = PositionGetDouble(POSITION_PRICE_CURRENT);
          double curr_tp = PositionGetDouble(POSITION_TP);
          if(pos_type==POSITION_TYPE_BUY && curr_sl<open_price && (curr_price-open_price)>=riskfree_ratio*(open_price-curr_sl)){
-            trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+            double new_sl = (open_price-curr_sl)*riskfree_ratio + curr_sl;
+            trade.PositionModify(pos_tickets[ipos], new_sl, curr_tp);
          }else if(pos_type==POSITION_TYPE_SELL && curr_sl>open_price && (open_price-curr_price)>=riskfree_ratio*(curr_sl-open_price)){
-            trade.PositionModify(pos_tickets[ipos], open_price, curr_tp);
+            double new_sl = (open_price-curr_sl)*riskfree_ratio + curr_sl;
+            trade.PositionModify(pos_tickets[ipos], new_sl, curr_tp);
          }
       }
    }
