@@ -146,7 +146,7 @@ void CNews::CNews(datetime date_from_, datetime date_to_, string country_name_="
 void CNews::read_file(void){
    int filehandle;
    if (FileIsExist(FILE_NAME,FILE_COMMON)){
-      filehandle=FileOpen(FILE_NAME,FILE_READ|FILE_COMMON|FILE_BIN);
+      filehandle=FileOpen(FILE_NAME,FILE_READ|FILE_COMMON|FILE_BIN|FILE_SHARE_READ);
       FileSeek(filehandle,0,SEEK_SET);
       if (filehandle==INVALID_HANDLE){
          Print(__FUNCTION__,": can't open previous news history file; invalid file handle");
