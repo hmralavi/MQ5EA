@@ -57,8 +57,6 @@ input int suspend_minutes_before_news = 0;
 input int suspend_minutes_after_news = 0;
 input int no_cycle_minutes_before_news = 0;
 input int no_cycle_minutes_after_news = 0;
-input string country_name = "US";
-input string important_news = MY_IMPORTANT_NEWS;
 
 CTrade trade;
 int harsi_handle, fast_ema_handle, slow_ema_handle;
@@ -248,7 +246,7 @@ void update_news(void){
    TimeToStruct(TimeCurrent(), today);
    if(last_day != today.day){
       last_day = today.day;
-      today_news = CNews(0,0,country_name,important_news);
+      today_news = CNews(0,0,"US",MY_IMPORTANT_NEWS);
       ArrayPrint(today_news.news);
    }
 }
