@@ -34,9 +34,11 @@ input int rsi_period = 14;
 input bool rsi_smoothing = false;
 input ENUM_RSI_RULE rsi_rule = RSI_RULE_SIGN;
 
-input group "EMA"
-input int fast_ema_period = 50;
-input int slow_ema_period = 200;
+input group "MA"
+input int fast_ma_period = 50;
+input int slow_ma_period = 200;
+input ENUM_APPLIED_PRICE ma_source = PRICE_CLOSE;
+input ENUM_MA_METHOD ma_method = MODE_SMMA;
 
 input group "Martingale settings"
 input double starting_lot_size = 0.01;
@@ -60,7 +62,7 @@ input int no_cycle_minutes_after_news = 0;
 input int backtesting_news_time_shift_minutes = 0;
 
 CTrade trade;
-int harsi_handle, fast_ema_handle, slow_ema_handle;
+int harsi_handle, fast_ma_handle, slow_ma_handle;
 ENUM_TIMEFRAMES tf;
 CNews today_news;
 double lotsize;
@@ -76,10 +78,10 @@ int OnInit()
    trade.LogLevel(LOG_LEVEL_NO);
    tf = convert_tf(custom_timeframe);
    harsi_handle = iCustom(_Symbol, tf, "..\\Experts\\mq5ea\\indicators\\HARSI.ex5", harsi_period, harsi_smoothing, rsi_source, rsi_period, rsi_smoothing, 0, 0, 0, 0, 0, false, false);
-   fast_ema_handle = iMA(_Symbol, tf, fast_ema_period, 0, MODE_EMA, PRICE_CLOSE);
-   slow_ema_handle = iMA(_Symbol, tf, slow_ema_period, 0, MODE_EMA, PRICE_CLOSE);
-   ChartIndicatorAdd(0, 0, fast_ema_handle);
-   ChartIndicatorAdd(0, 0, slow_ema_handle);
+   fast_ma_handle = iMA(_Symbol, tf, fast_ma_period, 0, ma_method, ma_source);
+   slow_ma_handle = iMA(_Symbol, tf, slow_ma_period, 0, ma_method, ma_source);
+   ChartIndicatorAdd(0, 0, fast_ma_handle);
+   ChartIndicatorAdd(0, 0, slow_ma_handle);
    ChartIndicatorAdd(0, 0, harsi_handle);
    lotsize = starting_lot_size/lot_factor;
    force_close_positions = false;
@@ -90,8 +92,8 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    IndicatorRelease(harsi_handle);
-   IndicatorRelease(fast_ema_handle);
-   IndicatorRelease(slow_ema_handle);
+   IndicatorRelease(fast_ma_handle);
+   IndicatorRelease(slow_ma_handle);
 }
 
 void OnTick()
@@ -143,7 +145,7 @@ void OnTick()
    double desired_tp_usd, current_tp_usd, forbidden_zone_mid_price, forbidden_zone_offset_price;
    analyze_positions(desired_tp_usd, current_tp_usd, forbidden_zone_mid_price, forbidden_zone_offset_price, pos_tickets);
    if((!MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_VISUAL_MODE)) && !MQLInfoInteger(MQL_OPTIMIZATION) && !MQLInfoInteger(MQL_FORWARD)){
-      Comment(StringFormat("EA: %d     NPos: %.0d     Lotsize: %.2f     Prof: %.2f     TP: %.2f", Magic, npos, lotsize, current_tp_usd, desired_tp_usd));
+      Comment(StringFormat("EA: %d     NPos: %d     Lotsize: %.2f     Prof: %.2f     TP: %.2f", Magic, npos, lotsize*lot_factor, current_tp_usd, desired_tp_usd));
    }
 
    if(current_tp_usd>=desired_tp_usd && npos>0){
@@ -179,19 +181,19 @@ void OnTick()
 }
 
 int buy_or_sell_signal(){ // 0: nothing, 1:buy, 2:sell
-   double p, fema[1], sema[1], hao[1], hac[1], rsi[2];
+   double p, fma[1], sma[1], hao[1], hac[1], rsi[2];
    p = iClose(_Symbol, tf, 1);
-   CopyBuffer(fast_ema_handle, 0, 1, 1, fema);
-   CopyBuffer(slow_ema_handle, 0, 1, 1, sema);
+   CopyBuffer(fast_ma_handle, 0, 1, 1, fma);
+   CopyBuffer(slow_ma_handle, 0, 1, 1, sma);
    CopyBuffer(harsi_handle, HARSI_OPEN_BUFFER, 1, 1, hao);
    CopyBuffer(harsi_handle, HARSI_CLOSE_BUFFER, 1, 1, hac);
    CopyBuffer(harsi_handle, RSI_BUFFER, 1, 2, rsi);
    if(rsi_rule==RSI_RULE_SIGN){
-      if(rsi[1]>0 && p>fema[0] && p>sema[0] && fema[0]>sema[0] && hac[0]>hao[0]) return 1;
-      if(rsi[1]<0 && p<fema[0] && p<sema[0] && fema[0]<sema[0] && hac[0]<hao[0]) return 2;
+      if(rsi[1]>0 && p>fma[0] && p>sma[0] && fma[0]>sma[0] && hac[0]>hao[0]) return 1;
+      if(rsi[1]<0 && p<fma[0] && p<sma[0] && fma[0]<sma[0] && hac[0]<hao[0]) return 2;
    }else if(rsi_rule==RSI_RULE_BREAK){
-      if(rsi[1]>0 && rsi[0]<0 && p>fema[0] && fema[0]>sema[0] && hac[0]>hao[0]) return 1;
-      if(rsi[1]<0 && rsi[0]>0 && p<fema[0] && fema[0]<sema[0] && hac[0]<hao[0]) return 2;
+      if(rsi[1]>0 && rsi[0]<0 && p>fma[0] && fma[0]>sma[0] && hac[0]>hao[0]) return 1;
+      if(rsi[1]<0 && rsi[0]>0 && p<fma[0] && fma[0]<sma[0] && hac[0]<hao[0]) return 2;
    }
    return 0;   
 }
@@ -218,7 +220,7 @@ void analyze_positions(double& desired_tp_usd, double& current_tp_usd, double& f
       }
    }
    if(tp_rule == TP_RULE_COUNT_BASED) desired_tp_usd = starting_tp_usd*((npos-1)*tp_factor+1);
-   else if(tp_rule == TP_RULE_LOT_BASED) desired_tp_usd = starting_tp_usd*((lotbuys+lotsells-starting_lot_size)*tp_factor+1);
+   else if(tp_rule == TP_RULE_LOT_BASED) desired_tp_usd = starting_tp_usd*((lotbuys+lotsells-starting_lot_size)*tp_factor/starting_lot_size+1);
    if(npos>0){
       //double breakeven_price = 0;
       //if(lotbuys != lotsells) breakeven_price = (pricebuys-pricesells)/(lotbuys-lotsells);
