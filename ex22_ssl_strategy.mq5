@@ -76,6 +76,7 @@ input group "Settings for prop challenge report"
 input double prop_challenge_min_profit_usd = 800; // Profit (usd)
 input double prop_challenge_max_drawdown_usd = 1200;  //  Drawdown (usd)
 input double prop_challenge_daily_loss_limit = 450;  // Daily loss (usd)
+input int prop_challenge_n_days = 30;  // Number of days
 
 input group "EA settings"
 input double max_daily_loss_allowed = 0;  // Max daily loss allowed
@@ -439,7 +440,7 @@ bool is_weekend(void){
 }
 
 double OnTester(void){
-   return print_prop_challenge_report(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_daily_loss_limit);
+   return print_prop_challenge_report(prop_challenge_min_profit_usd, prop_challenge_max_drawdown_usd, prop_challenge_daily_loss_limit, prop_challenge_n_days);
 }
 
 void update_news(void){

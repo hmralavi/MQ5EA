@@ -205,7 +205,7 @@ double PropChallengeCriteria::get_today_profit(void){
    return pdata.profit;
 }
 
-double print_prop_challenge_report(double min_profit_usd, double max_drawdown_usd, double daily_loss_limit_usd){
+double print_prop_challenge_report(double min_profit_usd, double max_drawdown_usd, double daily_loss_limit_usd, int max_allowed_days){
    int results[];  // number of element=number of prop challenges,  -1: failure, 0: neutral(retake), 1:win
    HistorySelect(0, TimeCurrent()+10);
    int ndeals = HistoryDealsTotal();
@@ -247,7 +247,7 @@ double print_prop_challenge_report(double min_profit_usd, double max_drawdown_us
       }else if(prof>=min_profit_usd){
          results[ArraySize(results)-1] = 1;
          new_challenge = true;
-      }else if(float(current_date-start_date)/PeriodSeconds(PERIOD_D1)>30){
+      }else if(float(current_date-start_date)/PeriodSeconds(PERIOD_D1)>max_allowed_days){
          if(prof<0) results[ArraySize(results)-1] = -1;
          new_challenge = true;
       }
