@@ -28,7 +28,6 @@ enum ENUM_IN_PROFIT_SSL_CHANGED_POLICY{
 };
 
 input group "Time settings"
-input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_M5;  // Time Frame
 input bool trade_only_in_session_time = false;  // entries only in specific session time of the day
 input double session_start_hour = 5.0;          // session start hour (server time)
 input double session_end_hour = 13.0;           // session end hour (server time)
@@ -37,6 +36,7 @@ input bool no_trade_weekend = false;  // no trade on weekend (fri)
 
 input group "Main SSL settings"
 input int ssl_period = 14; // SSL period
+input ENUM_CUSTOM_TIMEFRAMES custom_timeframe = CUSTOM_TIMEFRAMES_M5;  // Time Frame
 input int min_ssl_breaking_points = 0;  // minimum points to consider SSL is broken
 
 input group "SSL confirmation"
@@ -165,7 +165,7 @@ void OnTick()
    
    if(terminate_hour>0){
       if(!is_session_time_allowed_double(session_start_hour, terminate_hour)){
-         run_early_exit_policy(0);
+         CloseAllPositions(trade, 0);
          DeleteAllOrders(trade);
          return;
       }
@@ -243,12 +243,8 @@ void OnTick()
    
    if((ArraySize(pos_tickets)+ArraySize(ord_tickets))>0){
       DeleteAllOrders(trade);
-      if(multiple_entry_offset_points>0){
-         if(ssl_upper==EMPTY_VALUE && ssl_lower!=EMPTY_VALUE) run_early_exit_policy(1); // close only buy positions
-         if(ssl_upper!=EMPTY_VALUE && ssl_lower==EMPTY_VALUE) run_early_exit_policy(2); // close only sell positions
-      }else{
-         run_early_exit_policy(0);
-      }
+      if(ssl_upper==EMPTY_VALUE && ssl_lower!=EMPTY_VALUE) run_early_exit_policy(1); // close only buy positions
+      if(ssl_upper!=EMPTY_VALUE && ssl_lower==EMPTY_VALUE) run_early_exit_policy(2); // close only sell positions
       ignore_new_candle = true;
    }
     
